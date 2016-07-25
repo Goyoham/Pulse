@@ -1,3 +1,9 @@
+var socket = io();
+
+socket.on('server message', function(msg){
+   $('#messages').append($('<li>').text(msg));
+});
+
 pulse.ready(function() {
 
    var engine = new pulse.Engine( { gameWindow: 'game-window', size: { width: 640, height: 480 } } );
