@@ -1,9 +1,5 @@
 var socket = io();
 
-socket.on('server message', function(msg){
-   $('#messages').append($('<li>').text(msg));
-});
-
 pulse.ready(function() {
 
    var engine = new pulse.Engine( { gameWindow: 'game-window', size: { width: 640, height: 480 } } );
@@ -19,11 +15,17 @@ pulse.ready(function() {
    engine.scenes.activateScene(scene);
 
    layer.events.bind('mousedown', function(args) {
+      var position = [args.position.x, args.position.y];
+      socket.emit('click req', position);
+   });
+
+   socket.on('click ack', function(args){
       var ball = new Ball();
-      ball.position = { x: args.position.x, y: args.position.y };
+      ball.position = { x: args[0], y: args[1] };
       layer.addNode(ball);
    });
 
    engine.go(30);
 
 });
+
