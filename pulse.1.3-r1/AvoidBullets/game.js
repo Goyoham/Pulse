@@ -1,5 +1,7 @@
 var socket = io();
 
+var serverTick = 0;
+
 pulse.ready(function() {
    // GameEngine -------------------------
    var gane_engine = new pulse.Engine( { gameWindow: 'game-window', size: { width: 640, height: 480 } } );
@@ -40,10 +42,18 @@ pulse.ready(function() {
 
    socket.on('click ack', function(args){
       var ball = new Bullet({ballNum: args['ballNum']});
-      //ball.position = { x: args[0], y: args[1] };
       ball.position = { x: args['posx'], y: args['posy'] };
-      ball.velocity = { x: args['velox'], y:  args['veloy'] };
+      ball.startPos = { x: args['posx'], y: args['posy'] };
+      ball.velocity = { x: args['velx'], y:  args['vely'] };
+      ball.startVel = { x: args['velx'], y:  args['vely'] };
+      ball.startTick = args['startTick'];
+      ball.lastSyncTick = args['startTick'];
       game_layer.addNode(ball);
+   });
+
+   socket.on('serverSync', function(args){
+      serverTick = args['serverTick'];
+      DrawServerTick(game_layer);
    });
 
    gane_engine.go(30);
@@ -52,7 +62,15 @@ pulse.ready(function() {
 function AddAndDrawUserCount(layer, TotalUser){
    layer.removeNode('TotalUser');
    var label = new pulse.CanvasLabel({ text: 'TotalUser : ' + TotalUser });
-      label.position = { x: 70, y: 15 };
-      label.name = 'TotalUser'
-      layer.addNode(label);
+   label.position = { x: 70, y: 15 };
+   label.name = 'TotalUser'
+   layer.addNode(label);
+}
+
+function DrawServerTick(layer){
+   layer.removeNode('serverTick');
+   var label = new pulse.CanvasLabel({ text: 'tick : ' + serverTick });
+   label.position = { x: 70, y : 35 };
+   label.name = 'serverTick';
+   layer.addNode(label);
 }
