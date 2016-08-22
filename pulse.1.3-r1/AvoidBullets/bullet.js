@@ -15,9 +15,7 @@ var Bullet = pulse.Sprite.extend({
          args.src = BallNum[0];
       else
          args.src = BallNum[args['ballNum']];
-
-      //this.velocity = { x: (Math.random() * 300) - 150, y: (Math.random() * 300) - 150 };
-
+      
       this._super(args);
    },
    update: function(elapsedMS) {
@@ -49,10 +47,21 @@ var Bullet = pulse.Sprite.extend({
       this.position.y = newY;
       */
 
+      /*
+     
+      if( serverTick > this.lastServerTick ){
+         var diff = serverTick - this.lastServerTick;
+         this.sumElapsedMS -= diff; 
+         this.lastServerTick = serverTick;  
+      }
+      */
       this.sumElapsedMS += (elapsedMS / 1000);
-      var tick = this.startTick + this.sumElapsedMS;
+      var tick = this.sumElapsedMS;
+      //if( debug > 0 )
+      //   console.log( 'sumEms:'+this.sumElapsedMS + ' ' + ' ems:'+elapsedMS+' tick:'+tick );
       this.sync( tick );
-      //console.log( tick );
+      //if( debug > 0 )
+      //   console.log( 'sumEms:'+this.sumElapsedMS + ' ' + ' ems:'+elapsedMS+' tick:'+tick );
 
       this._super(elapsedMS);
    }
@@ -73,29 +82,39 @@ function GetPosition(tick_, startPos_, mapSize_, velocity_){
    var nowVelType = (turn % 2 === 0) ? 1 : -1;
    var nowPos = nowVelType === 1 ? mod : mapSize - mod;
    nowPos = velType > 0 ? nowPos : mapSize - nowPos;
-
+   
    if( debug > 0 ){
+      /*
+      console.log('<< debug:'+debug);
       console.log(tick_ + ' ' + startPos_ + ' ' + mapSize_ + ' ' + velocity_);
       console.log(velAbs + ' ' + velType + ' ' + mapSize + ' ' + startPos);
       console.log(moved + ' ' + movedWithStartPos + ' ' + mod + ' ' + turn + ' ' + nowVelType + ' ' + nowPos);
-      console.log(typeof startPos);
-      console.log(typeof moved);
-      console.log(debug);
+      */
       debug -= 1;
    }
+   
    return nowPos;
 }
 
-Bullet.prototype.sync = function(serverTick_){
-   if( serverTick_ === this.lastSyncTick )
+Bullet.prototype.Run = function(){
+   this.sumElapsedMS = serverTick - this.startTick;
+   /*
+   console.log( 'serverTick:'+serverTick );
+   console.log( 'startTick:'+this.startTick );
+   console.log( 'sumElapsedMS:'+this.sumElapsedMS );
+   */
+}
+
+Bullet.prototype.sync = function(tick_){
+   if( tick_ === this.lastSyncTick )
       return;
-   var spendTick = serverTick_ - this.startTick;
-   this.position.x = screen.ws + GetPosition(spendTick, this.startPos.x, screen.we - screen.ws, this.velocity.x );
-   this.position.y = screen.hs + GetPosition(spendTick, this.startPos.y, screen.he - screen.hs, this.velocity.y );
-   this.lastSyncTick = serverTick_;
+   this.position.x = screen.ws + GetPosition(tick_, this.startPos.x, screen.we - screen.ws, this.velocity.x );
+   this.position.y = screen.hs + GetPosition(tick_, this.startPos.y, screen.he - screen.hs, this.velocity.y );
+   this.lastSyncTick = tick_;
 }
 Bullet.prototype.startTick = 0;
 Bullet.prototype.lastSyncTick = 0;
+Bullet.prototype.lastServerTick = 0;
 Bullet.prototype.startPos = { x : 0, y : 0 }
 Bullet.prototype.startVel = { x : 0, y : 0 }
 Bullet.prototype.sumElapsedMS = 0;

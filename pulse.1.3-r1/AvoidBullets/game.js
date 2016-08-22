@@ -1,6 +1,7 @@
 var socket = io();
 
 var serverTick = 0;
+var numOfBullet = 0;
 
 pulse.ready(function() {
    // GameEngine -------------------------
@@ -32,8 +33,19 @@ pulse.ready(function() {
       });
    });
 
+   DrawNumOfBullet(game_layer);
+   DrawButtonClear(game_layer);
+
    socket.on('connected', function(TotalUser){
       AddAndDrawUserCount(game_layer, TotalUser);
+   });
+
+   socket.on('init', function(initData){
+      serverTick = initData.serverTick;
+      var bulletList = initData.bulletList;
+      ClearBullet(game_layer);
+      for(var i = 0; i < bulletList.length; ++i)
+         AddBullet(game_layer, bulletList[i]);
    });
 
    socket.on('disconnected', function(TotalUser){
@@ -41,14 +53,7 @@ pulse.ready(function() {
    });
 
    socket.on('click ack', function(args){
-      var ball = new Bullet({ballNum: args['ballNum']});
-      ball.position = { x: args['posx'], y: args['posy'] };
-      ball.startPos = { x: args['posx'], y: args['posy'] };
-      ball.velocity = { x: args['velx'], y:  args['vely'] };
-      ball.startVel = { x: args['velx'], y:  args['vely'] };
-      ball.startTick = args['startTick'];
-      ball.lastSyncTick = args['startTick'];
-      game_layer.addNode(ball);
+      AddBullet(game_layer, args);
    });
 
    socket.on('serverSync', function(args){
@@ -59,18 +64,54 @@ pulse.ready(function() {
    gane_engine.go(30);
 });
 
+function AddBullet(layer, args){
+   var ball = new Bullet({ballNum: args['ballNum']});
+      ball.position = { x: args['posx'], y: args['posy'] };
+      ball.startPos = { x: args['posx'], y: args['posy'] };
+      ball.velocity = { x: args['velx'], y:  args['vely'] };
+      ball.startVel = { x: args['velx'], y:  args['vely'] };
+      ball.startTick = args['startTick'];
+      ball.lastSyncTick = args['startTick'];
+      ball.name = 'bullet' + numOfBullet;
+      ball.Run();
+      layer.addNode(ball);
+      ++numOfBullet;
+      DrawNumOfBullet(layer);
+}
+
+function ClearBullet(layer){
+   for(var i = 0; i < numOfBullet; ++i)
+      layer.removeNode('bullet' + i);
+   numOfBullet = 0;
+   DrawNumOfBullet(layer);
+}
+
 function AddAndDrawUserCount(layer, TotalUser){
    layer.removeNode('TotalUser');
    var label = new pulse.CanvasLabel({ text: 'TotalUser : ' + TotalUser });
-   label.position = { x: 70, y: 15 };
+   label.position = { x: 100, y: 15 };
    label.name = 'TotalUser'
    layer.addNode(label);
 }
 
 function DrawServerTick(layer){
    layer.removeNode('serverTick');
-   var label = new pulse.CanvasLabel({ text: 'tick : ' + serverTick });
-   label.position = { x: 70, y : 35 };
+   var label = new pulse.CanvasLabel({ text: 'Tick : ' + serverTick });
+   label.position = { x: 100, y : 35 };
    label.name = 'serverTick';
+   layer.addNode(label);
+}
+
+function DrawNumOfBullet(layer){
+   layer.removeNode('NumOfBullet');
+   var label = new pulse.CanvasLabel({ text: 'NumOfBullet : ' + numOfBullet + '/50' });
+   label.position = { x: 100, y : 55 };
+   label.name = 'NumOfBullet';
+   layer.addNode(label);
+}
+
+function DrawButtonClear(layer){
+   var label = new pulse.CanvasLabel({ text: 'Clear' });
+   label.position = { x: 400, y : 35 };
    layer.addNode(label);
 }
