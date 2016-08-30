@@ -5,7 +5,7 @@ var app = express();
 var http = require('http').Server(app);
 var io = require('socket.io')(http);
 
-var port = 3001;
+var port = 3000;
 
 var screen = {ws:0, we:640, hs:81, he:480};
 var btn_clear = {ws:350, we:450, hs:15, he:55};
@@ -40,13 +40,14 @@ io.on('connection', function(socket){
 			args['vely'] = ((Math.random() * 300) - 150).toFixed();
 			args['ballNum'] = UserInfo[GetUserKey(socket)];
 			args['startTick'] = GetServerTick();
-			bulletList.push(args);
-			LogWithUserInfo(socket, 'clicked pos:' + args['posx'] + ',' + args['posy']
+			
+			if( bulletList.length < MAX_BULLET )
+			{
+				LogWithUserInfo(socket, 'clicked pos:' + args['posx'] + ',' + args['posy']
 										 + ' vel:' + args['velx'] + ',' + args['vely']
 										 + ' tick:' + args['startTick']
 										 );
-			if( bulletList.length < MAX_BULLET )
-			{
+				bulletList.push(args);
 				SendServerSync(io);
 				io.emit('click ack', args);
 			}
