@@ -1,5 +1,3 @@
-var screen = {ws:0, we:640, hs:81, he:480};
-
 var BallNum = [
    'imgs/bullet.png'
    , 'imgs/ship_mine.png'
@@ -67,35 +65,6 @@ var Bullet = pulse.Sprite.extend({
    }
 });
 
-var debug = 4;
-
-function GetPosition(tick_, startPos_, mapSize_, velocity_){
-   var velAbs = Math.abs(velocity_);
-   var velType = velocity_ >= 0 ? 1 : -1;
-   var mapSize = mapSize_ - 1;
-   var startPos = (velType > 0 ? startPos_ : mapSize - startPos_) * 1;
-
-   var moved = Math.floor(velAbs * tick_);
-   var movedWithStartPos = (startPos + moved);
-   var mod = ( (movedWithStartPos - 1) % mapSize ) + 1;
-   var turn = Math.floor( (movedWithStartPos - 1) / mapSize );
-   var nowVelType = (turn % 2 === 0) ? 1 : -1;
-   var nowPos = nowVelType === 1 ? mod : mapSize - mod;
-   nowPos = velType > 0 ? nowPos : mapSize - nowPos;
-   
-   if( debug > 0 ){
-      /*
-      console.log('<< debug:'+debug);
-      console.log(tick_ + ' ' + startPos_ + ' ' + mapSize_ + ' ' + velocity_);
-      console.log(velAbs + ' ' + velType + ' ' + mapSize + ' ' + startPos);
-      console.log(moved + ' ' + movedWithStartPos + ' ' + mod + ' ' + turn + ' ' + nowVelType + ' ' + nowPos);
-      */
-      debug -= 1;
-   }
-   
-   return nowPos;
-}
-
 Bullet.prototype.Run = function(){
    this.sumElapsedMS = serverTick - this.startTick;
    /*
@@ -108,10 +77,16 @@ Bullet.prototype.Run = function(){
 Bullet.prototype.sync = function(tick_){
    if( tick_ === this.lastSyncTick )
       return;
-   this.position.x = screen.ws + GetPosition(tick_, this.startPos.x, screen.we - screen.ws, this.velocity.x );
-   this.position.y = screen.hs + GetPosition(tick_, this.startPos.y, screen.he - screen.hs, this.velocity.y );
+   //this.position.x = screen.ws + GetPosition(tick_, this.startPos.x, screen.we - screen.ws, this.velocity.x );
+   //this.position.y = screen.hs + GetPosition(tick_, this.startPos.y, screen.he - screen.hs, this.velocity.y );
+   this.position = common.GetPosition(tick_, this.startPos, this.velocity);
    this.lastSyncTick = tick_;
 }
+
+Bullet.prototype.GetPos = function(){
+   return common.GetPosition(this.lastSyncTick, this.startPos, this.velocity);
+}
+
 Bullet.prototype.startTick = 0;
 Bullet.prototype.lastSyncTick = 0;
 Bullet.prototype.lastServerTick = 0;
