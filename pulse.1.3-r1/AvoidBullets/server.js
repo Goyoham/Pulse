@@ -31,11 +31,14 @@ http.listen(port, function(){
   console.log('listening on *:'+port);
 });
 
+// 유저 접속 시 받는 패킷
 io.on('connection', function(socket){
 	UpdateUserConnection(socket, true);
 	SendInit(io, socket);
 
+	// 유저가 클릭 이벤트 발생 시 받는 패킷. x, y 좌표를 받아서 그에 맞는 동작을 수행.
 	socket.on('click req', function(args){
+		// 게임 레이어 클릭이면, 총알을 추가.
 		if( IsGameLayer(args['posx'].toFixed(), args['posy'].toFixed()) ){
 			AddBullet(io, socket, args);
 			/*
@@ -61,6 +64,7 @@ io.on('connection', function(socket){
 			}
 			*/
 		}
+		// clear 버튼을 클릭했으면, clear 수행.
 		else if( IsButtonClear( args['posx'].toFixed(), args['posy'].toFixed()) ){
 			ClearBullets(io, socket);
 			/*
@@ -71,6 +75,7 @@ io.on('connection', function(socket){
 		}
 	});
 
+	// 유저 접속 종료 시 처리
 	socket.on('disconnect', function(){
 		UpdateUserConnection(socket, false);
 	});
@@ -80,18 +85,38 @@ io.on('connection', function(socket){
 
 Tick();
 
+// 서버 틱 계산
+function Tick(){
+	var date = new Date();
+	startTime = date.getTime();
+
+	console.log('* Server Started Time : ' + GetDate());
+
+	// setInterval은 특정 시간마다 특정 함수를 호출.
+	// 아래 함수를 30ms마다 호출한다.
+	setInterval(function(){
+		var time = new Date();
+		var t = time.getTime();
+		serverTick = GetServerTick();
+		//console.log('tick : ' + serverTick);
+		CheckCollision();
+	}, 30);
+}
+
+// 유저 최초 접속 시 처리. 기본적으로 전체 총알 데이터와 서버tick정보를 보낸다.
 function SendInit(io, socket, isClear){
 	serverTick = GetServerTick();
 	SendServerSync(io);
 
 	var initData = { serverTick: serverTick, bulletList: bulletList };
-	if( isClear )
+	if( isClear )	// clear버튼 누른거라면,
 		io.emit('init', initData); // 전체 유저에게 보내기
-	else
+	else			// 그게 아니면 최초 접속
 		socket.emit('init', initData); // 접속한 유저에게만 보내기
 	LogWithUserInfo(socket, 'send init. bullet size:' + bulletList.length);
 }
 
+// 유저 정보를 포함한 콘솔 로그 출력용 함수. socket에서 유저IP 및 포트를 추출한다.
 function LogWithUserInfo(socket, msg){
 	var clientIp = socket.request.connection.remoteAddress;
   	var clientPort = socket.request.connection.remotePort;
@@ -105,10 +130,12 @@ function LogWithUserInfo(socket, msg){
 				);
 }
 
+// 유저 정보를 제외한 콘솔 로그 출력용 함수.
 function Log(msg){
 	console.log('['+GetDate()+'] '+ msg);
 }
 
+// 유저 접속 또는 접속종료시 처리 함수. 로그를 남기고 클라 전체에 패킷을 보낸다.
 function UpdateUserConnection(socket, isConnect){
 	var msg;
 	if( isConnect ){
@@ -129,12 +156,15 @@ function UpdateUserConnection(socket, isConnect){
 	io.emit(msg, data);	
 }
 
+// 유저 IP 및 포트 조합을 유저 UNIQUE KEY로 사용한다.
+// 하지만 동일한 PC에서 접속시 동일한 IP 및 포트로 접속이 되어서, 여기다가 SOCKET ID같은걸 더 붙여야 할 것 같다.
 function GetUserKey(socket){
 	var clientIp = socket.request.connection.remoteAddress;
   	var clientPort = socket.request.connection.remotePort;
 	return clientIp+clientPort;
 }
 // --------------- check
+// 클릭 검사
 function IsClicked(rect, posX, posY){
 	if( posX < rect.ws || posX > rect.we )
 		return false;
@@ -144,47 +174,37 @@ function IsClicked(rect, posX, posY){
 
 	return true;
 }
+// 게임 레이어 클릭 검사
 function IsGameLayer(posX, posY){
 	return IsClicked(screen, posX, posY);
 }
+// 클리어 버튼 클릭 검사
 function IsButtonClear(posX, posY){
 	return IsClicked(btn_clear, posX, posY);
 }
 // --------------- timer
+// 현재 시간 스트링 리턴
 function GetDate(){
 	var date = new Date();
 	var ms = date.getMilliseconds();
 	return date.toFormat('YY/MM/DD HH24:MI:SS.'+ms);
 }
 
+// 현재 서버 틱 데이터 받기
 function GetServerTick(){
 	var time = new Date();
 	var t = time.getTime();
 	return (t - startTime)/1000;
 }
 
+// 서버 클라 TICK 싱크를 위해, 클라 전체로 서버 TICK 데이터 BROADCAST
 function SendServerSync(io){
 	var args = {};
 	args['serverTick'] = serverTick;
 	io.emit('serverSync', args);
 }
 
-//var TickTerm = 500;
-function Tick(){
-	var date = new Date();
-	startTime = date.getTime();
-
-	console.log('* Server Started Time : ' + GetDate());
-
-	setInterval(function(){
-		var time = new Date();
-		var t = time.getTime();
-		serverTick = GetServerTick();
-		//console.log('tick : ' + serverTick);
-		CheckCollision();
-	}, 30);
-}
-
+// 500ms 마다 정기적으로 서버에서 클라로 tick을 보낸다.
 function TickServerSync(io){
 	setInterval(function(){
 		SendServerSync(io);
@@ -193,6 +213,7 @@ function TickServerSync(io){
 // --------------- timer end
 
 // ---------- create bullet
+// 총알 생성. 클릭 위치에 생성하고, 랜덤한 방향 및 속도를 정한다.
 function AddBullet(io, socket, args){
 	var newIndex = CreateBullet();
 	if( newIndex < 0 )
@@ -219,6 +240,7 @@ function AddBullet(io, socket, args){
 	io.emit('click ack', args);
 }
 
+// 총알 제거. 
 function RemoveBullet(index){
 	if( IsExistBullet(index) === false )
 		return;
@@ -229,6 +251,7 @@ function RemoveBullet(index){
 	Log('remove bullet index : ' + index);
 }
 
+// 총알 모두 제거.
 function ClearBullets(io, socket){
 	bulletList = [];
 	numOfBullet = 0;
@@ -236,6 +259,7 @@ function ClearBullets(io, socket){
 	LogWithUserInfo(socket, 'clear bullets');
 }
 
+// 총알 index 생성. 중복되지 않는 uid 생성을 위함.
 function CreateBullet(){
 	if( numOfBullet >= MAX_BULLET )
 		return -1;
@@ -247,6 +271,7 @@ function CreateBullet(){
 	return bulletList.length;
 }
 
+// 총알 종류 랜덤으로 받기.
 function GetBallNum(){
 	var mathRan = Math.random();
 	var mult = Math.random() * BALL_NUM_MAX;
@@ -256,6 +281,7 @@ function GetBallNum(){
 	return ran2;
 }
 
+// 총알 index로, 현재 실존하는 총알인지 검사.
 function IsExistBullet(index){
 	if( index >= bulletList.length )
 		return false;
@@ -265,6 +291,7 @@ function IsExistBullet(index){
 	return true;
 }
 
+// 동일한 색깔의 총알인지 검사.
 function IsSameBullet(indexA, indexB){
 	if(IsExistBullet(indexA) === false)
 		return false;
@@ -273,6 +300,7 @@ function IsSameBullet(indexA, indexB){
 	return bulletList[indexA].ballNum === bulletList[indexB].ballNum;
 }
 
+// 현재 총알의 위치 계산
 function GetBulletPosition(index){
 	var startPos = {x: bulletList[index].posx, y: bulletList[index].posy };
 	var vel = {x: bulletList[index].velx, y: bulletList[index].vely };
@@ -280,6 +308,8 @@ function GetBulletPosition(index){
 	return common.GetPosition(tick, startPos, vel);
 }
 
+// 총알 전체를 루프 돌면서 충돌한 총알이 있는지 검사.
+// 이렇게 루프를 다 돌아버려도 되는건지 의문이다.
 function CheckCollision(){
 	for(var ti = 0; ti < bulletList.length - 1; ++ti){
 		if( IsExistBullet(ti) === false )

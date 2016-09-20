@@ -11,7 +11,7 @@ var SCREEN_GAME_WIDTH = SCREEN_WIDTH;//640
 var SCREEN_GAME_HEIGHT = SCREEN_HEIGHT - SCREEN_TERM_TOP;//400
 
 pulse.ready(function() {
-   // GameEngine -------------------------
+   // GameEngine 기본 처리 시작 -------------------------
    var gane_engine = new pulse.Engine( { gameWindow: 'game-window', size: { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } } );
    var game_scene = new pulse.Scene();
    var game_layer = new pulse.Layer();
@@ -32,7 +32,9 @@ pulse.ready(function() {
    gane_engine.scenes.addScene(game_scene);
 
    gane_engine.scenes.activateScene(game_scene);
+   // GameEngine 기본 처리 끝 -------------------------
 
+   // 마우스 클릭 시 서버로 req 전송
    game_layer.events.bind('mousedown', function(args) {
       socket.emit('click req', { 
          posx: args.position.x
@@ -40,13 +42,16 @@ pulse.ready(function() {
       });
    });
 
+   // 최초로 텍스트 그려줌
    DrawNumOfBullet(game_layer);
    DrawButtonClear(game_layer);
 
+   // 유저 접속시 패킷 받기
    socket.on('connected', function(data){
       AddAndDrawUserCount(game_layer, data);
    });
 
+   // 유저 접속시 또는 새로고침시 전체 총알 위치 데이터 받기
    socket.on('init', function(initData){
       serverTick = initData.serverTick;
       var bulletList = initData.bulletList;
@@ -55,26 +60,32 @@ pulse.ready(function() {
          AddBullet(game_layer, bulletList[i]);
    });
 
+   // 유저 접속 종료시 패킷 받기
    socket.on('disconnected', function(data){
       AddAndDrawUserCount(game_layer, data);
    });
 
+   // 클릭으로 총알 생성시 ack 받기
    socket.on('click ack', function(args){
       AddBullet(game_layer, args);
    });
 
+   // 총알 지우기 패킷 받기
    socket.on('remove bullet', function(args){
       RemoveBullet(game_layer, args.index);
    });
 
+   // 서버 틱 패킷 받기
    socket.on('serverSync', function(args){
       serverTick = args['serverTick'];
       DrawServerTick(game_layer);
    });
 
+   // 30ms 마다 다시 그린다.
    gane_engine.go(30);
 });
 
+// 총알을 하나 추가한다.
 function AddBullet(layer, args){
    if( args.uid < 0)
       return;
@@ -93,6 +104,7 @@ function AddBullet(layer, args){
       DrawNumOfBullet(layer);
 }
 
+// 총알을 모두 지운다.
 function ClearBullet(layer){
    for(var i = 0; i < MAX_BULLET; ++i)
       RemoveBullet(layer, i, true);
@@ -100,6 +112,7 @@ function ClearBullet(layer){
    DrawNumOfBullet(layer);
 }
 
+// 총알을 지운다. index로 지울 총알을 정함.
 function RemoveBullet(layer, index, notDraw){
    if( notDraw !== true )
    {
@@ -112,6 +125,7 @@ function RemoveBullet(layer, index, notDraw){
    layer.removeNode('bullet' + index);
 }
 
+// 유저 수 텍스트 그리기. "User Now:"는 동접. "Total:"은 누적 유닉.
 function AddAndDrawUserCount(layer, UserCount){
    layer.removeNode('TotalUser');
    var label = new pulse.CanvasLabel({ text: 'User Now : ' + UserCount.TotalUser + ', Total : ' + UserCount.AccUserCount });
@@ -120,6 +134,7 @@ function AddAndDrawUserCount(layer, UserCount){
    layer.addNode(label);
 }
 
+// Tick 텍스트 그리기. 서버에서 받은 클라 틱을 나타냄.
 function DrawServerTick(layer){
    layer.removeNode('serverTick');
    var label = new pulse.CanvasLabel({ text: 'Tick : ' + serverTick });
@@ -128,6 +143,7 @@ function DrawServerTick(layer){
    layer.addNode(label);
 }
 
+// NumOfBullet 텍스트 그리기. 현재 총알 갯수를 나타냄.
 function DrawNumOfBullet(layer){
    layer.removeNode('NumOfBullet');
    var label = new pulse.CanvasLabel({ text: 'NumOfBullet : ' + numOfBullet + '/50' });
@@ -136,6 +152,7 @@ function DrawNumOfBullet(layer){
    layer.addNode(label);
 }
 
+// clear 텍스트 그리기. 버튼을 누르면 공을 모두 제거 (클릭시 서버에서 좌표 체크)
 function DrawButtonClear(layer){
    var label = new pulse.CanvasLabel({ text: 'Clear' });
    label.position = { x: 400, y : 35 };
