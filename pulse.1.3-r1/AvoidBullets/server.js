@@ -246,7 +246,7 @@ function RemoveBullet(index){
 		return;
 	bulletList[index]['uid'] = -1;
 	--numOfBullet;
-	args = {index: index};
+	args = {index: index, removedTick: GetServerTick()};
 	io.emit('remove bullet', args);
 	Log('remove bullet index : ' + index);
 }

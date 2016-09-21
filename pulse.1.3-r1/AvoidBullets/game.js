@@ -72,6 +72,7 @@ pulse.ready(function() {
 
    // 총알 지우기 패킷 받기
    socket.on('remove bullet', function(args){
+      //ReserveBulletToRemove(args);
       RemoveBullet(game_layer, args.index);
    });
 
@@ -83,6 +84,10 @@ pulse.ready(function() {
 
    // 30ms 마다 다시 그린다.
    gane_engine.go(30);
+
+   setInterval(function(){
+      CheckRemoveBullets(game_layer);
+   }, 30);
 });
 
 // 총알을 하나 추가한다.
@@ -113,7 +118,7 @@ function ClearBullet(layer){
 }
 
 // 총알을 지운다. index로 지울 총알을 정함.
-function RemoveBullet(layer, index, notDraw){
+var RemoveBullet = function(layer, index, notDraw){
    if( notDraw !== true )
    {
       var node = layer.getNode('bullet' + index);
@@ -123,6 +128,34 @@ function RemoveBullet(layer, index, notDraw){
       DrawNumOfBullet(layer);
    }
    layer.removeNode('bullet' + index);
+};
+
+// 총알 지우기 예약. 클라 서버 타이밍을 맞추기 위해.
+var reservedBulletsToRemove = [];
+function ReserveBulletToRemove(args){
+   reservedBulletsToRemove.push(args);
+}
+
+var CheckRemoveBullets = function(layer){
+   while(reservedBulletsToRemove.length > 0){
+      var index = reservedBulletsToRemove[0].index;
+      var removedTick = reservedBulletsToRemove[0].removedTick;
+      var node = layer.getNode('bullet' + index);
+      if( typeof node === 'undefined')
+      {
+         reservedBulletsToRemove.shift();
+         continue;
+      }
+      var nowTick = node.GetTotalTick();
+      if( nowTick >= removedTick )
+      {
+         RemoveBullet(layer, index);
+      }
+      else
+      {
+         break;
+      }
+   }
 }
 
 // 유저 수 텍스트 그리기. "User Now:"는 동접. "Total:"은 누적 유닉.

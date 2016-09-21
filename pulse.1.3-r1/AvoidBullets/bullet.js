@@ -70,6 +70,10 @@ Bullet.prototype.GetPos = function(){
    return common.GetPosition(this.lastSyncTick, this.startPos, this.velocity);
 }
 
+Bullet.prototype.GetTotalTick = function(){
+   return this.startTick + this.sumElapsedMS;
+}
+
 // 아래는 Bullet 클래스의 멤버변수 선언 및 초기화.
 Bullet.prototype.startTick = 0;              // 생성 시간 tick
 Bullet.prototype.lastSyncTick = 0;           // 마지막 싱크 된 tick
