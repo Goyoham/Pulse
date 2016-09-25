@@ -407,13 +407,13 @@ function CheckBestScore(socket, args){
 	// 2. 랭크 계산
 	var bNewScore = false;
 	var rankData = {nickname: socket.request.connection.remoteAddress, score: args.score};
-	console.log('check score ' + rankData);
+	console.log('check score ' + rankData.score + ' ' + rankData.nickname);
 	if( bestScore.length < MaxRankSize ){
 		bestScore.push(rankData);
 		bNewScore = true;
 	}
 	else{
-		if(rankData.score > bestScore[MaxRankSize-1])
+		if(rankData.score > bestScore[MaxRankSize-1].score)
 		{
 			bestScore.push(rankData);
 			bNewScore = true;
