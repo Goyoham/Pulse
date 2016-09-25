@@ -21,9 +21,12 @@ var startTime = 0;
 
 var bulletList = [];
 var MAX_BULLET = 60;
-var MAX_BULLET_TYPE = [40, 10, 10];
+var MAX_BULLET_TYPE = [10, 10, 40, 10];
 var numOfBullet = 0;
-var numOfBulletByType = [0, 0, 0];
+var numOfBulletByType = [0, 0, 0, 0];
+
+// rank
+var bestScore = [];
 
 app.use(express.static(__dirname + '/'));
 app.get('/', function(req, res){
@@ -65,6 +68,10 @@ io.on('connection', function(socket){
 		UpdateUserConnection(socket, false);
 	});
 
+	socket.on('new score', function(args){
+		CheckBestScore(socket, args);
+	});
+
 	TickServerSync(io);
 });
 
@@ -88,7 +95,8 @@ function Tick(){
 	}, 30);
 
 	// 1초마다 BASE BULLET 생성
-	setInterval(function(){CreateBaseBullet()}, 1000);
+	setInterval(function(){CreateBaseBullet(common.BULLET_TYPE_BASE1)}, 500);
+	setInterval(function(){CreateBaseBullet(common.BULLET_TYPE_BASE2)}, 1000);
 }
 
 // 유저 최초 접속 시 처리. 기본적으로 전체 총알 데이터와 서버tick정보를 보낸다.
@@ -102,6 +110,8 @@ function SendInit(io, socket, isClear){
 	else			// 그게 아니면 최초 접속
 		socket.emit('init', initData); // 접속한 유저에게만 보내기
 	LogWithUserInfo(socket, 'send init. bullet size:' + bulletList.length);
+
+	SendBestScore();
 }
 
 function SendCreatedYourBullet(socket, uid){
@@ -273,12 +283,14 @@ function MoveBullet(args){
 }
 
 // CREATE BASE BULLET
-var CreateBaseBullet = function(){
-	var args = {posx: 5, posy: 85};
-	AddBullet(common.BULLET_TYPE_BASE1, args);
+var CreateBaseBullet = function(type){
+	var args = {};
+	if( type === common.BULLET_TYPE_BASE1 )
+		args = {posx: 5, posy: 85};
+	else if( type === common.BULLET_TYPE_BASE2 )
+		args = {posx: 635, posy: 85};
 
-	var args2 = {posx: 635, posy: 85};
-	AddBullet(common.BULLET_TYPE_BASE2, args2);
+	AddBullet(type, args);
 }
 
 // 총알 제거. 
@@ -385,4 +397,39 @@ function CheckCollision(){
 			}
 		}
 	}
+}
+
+// rank
+var MaxRankSize = 10;
+function CheckBestScore(socket, args){
+	// 1. user 인증
+
+	// 2. 랭크 계산
+	var bNewScore = false;
+	console.log('check score ' + args.score);
+	if( bestScore.length < MaxRankSize ){
+		bestScore.push(args.score);
+		bNewScore = true;
+	}
+	else{
+		if(args.score > bestScore[MaxRankSize-1])
+		{
+			bestScore.push(args.score);
+			bNewScore = true;
+		}
+	}
+
+	if( bNewScore ){
+		bestScore.sort(function(a, b){return b-a});
+		if( bestScore.length > MaxRankSize )
+			bestScore.length = MaxRankSize;
+		SendBestScore();
+		Log('new score ' + args.score);
+		Log('bestScore : ' + bestScore);
+	}
+}
+
+// best score가 갱신 되면, 클라로 전달
+function SendBestScore(){
+	io.emit('new best score', bestScore);
 }

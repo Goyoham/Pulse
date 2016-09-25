@@ -15,9 +15,13 @@ var SCREEN_GAME_HEIGHT = SCREEN_HEIGHT - SCREEN_TERM_TOP;//400
 var MOUSE_EVENT_DOWN = false;
 var MOUSE_EVENT_INTERVAL = true;
 
+var myScore = 0;
+var myBestScore = 0;
+var serverBestScores = [];
+
 pulse.ready(function() {
    // GameEngine 기본 처리 시작 -------------------------
-   var gane_engine = new pulse.Engine( { gameWindow: 'game-window', size: { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } } );
+   var gane_engine = new pulse.Engine( { gameWindow: 'game-window', size: { width: SCREEN_WIDTH, height: SCREEN_HEIGHT+500 } } );
    var game_scene = new pulse.Scene();
    var game_layer = new pulse.Layer();
    game_layer.anchor = { x: 0, y: 0 };
@@ -42,7 +46,7 @@ pulse.ready(function() {
    // 마우스 클릭 시 서버로 req 전송
    game_layer.events.bind('mousedown', function(args) {
       MOUSE_EVENT_DOWN = true;
-      SendMouseEvent(socket, args, 50);
+      SendMouseEvent(args, 50);
    });
 
    game_layer.events.bind('mouseup', function(args) {
@@ -54,12 +58,13 @@ pulse.ready(function() {
       if( MOUSE_EVENT_DOWN === false )
          return;
       //console.log(args);
-      SendMouseEvent(socket, args, 100);
+      SendMouseEvent(args, 100);
    });
 
    // 최초로 텍스트 그려줌
    DrawNumOfBullet(game_layer);
    DrawButtonClear(game_layer);
+   DrawServerBestScore(game_layer);
 
    // 유저 접속시 패킷 받기
    socket.on('connected', function(data){
@@ -87,6 +92,7 @@ pulse.ready(function() {
 
    socket.on('created your bullet', function(args){
       SetMyBulletUID(args.uid);
+      ResetMyScore();
    });
 
    // 클릭으로 내 총알 이동
@@ -106,15 +112,22 @@ pulse.ready(function() {
       DrawServerTick(game_layer);
    });
 
+   // best score 받기
+   socket.on('new best score', function(newBestScore){
+      serverBestScores = newBestScore;
+      DrawServerBestScore(game_layer);
+   });
+
    // 30ms 마다 다시 그린다.
    gane_engine.go(30);
 
    setInterval(function(){
-      
+      CheckMyScore(30);
+      DrawMyScore(game_layer);
    }, 30);
 });
 
-function SendMouseEvent(socket, args, interval){
+function SendMouseEvent(args, interval){
    if( MOUSE_EVENT_INTERVAL === false )
       return;
 
@@ -130,10 +143,23 @@ function SendMouseEvent(socket, args, interval){
    }, interval);
 }
 
+// 랭크를 위한 내 기록 서버로 전달
+function SendMyScore(){
+   var args = { uid: MyBulletUID, score: GetMyScore() };
+   console.log('send my score : ' + args.score);
+   socket.emit('new score', args);
+}
+
 // 내 총알 UID SET
 function SetMyBulletUID(uid){
    MyBulletUID = uid;
    console.log('my bullet uid : ' + MyBulletUID);
+}
+
+function IsMyBulletAlive(){
+   if( MyBulletUID >= 0)
+      return true;
+   return false;
 }
 
 // 총알을 하나 추가한다.
@@ -193,7 +219,7 @@ var RemoveBullet = function(layer, index, notDraw){
    {
       var node = layer.getNode('bullet' + index);
       var pos = node.GetPos();
-      console.log('remove index:'+ index + ' tick:' + serverTick + ' pos:' + pos.x + ',' +pos.y);
+      //console.log('remove index:'+ index + ' tick:' + serverTick + ' pos:' + pos.x + ',' +pos.y);
       --numOfBullet;
       DrawNumOfBullet(layer);
    }
@@ -201,9 +227,37 @@ var RemoveBullet = function(layer, index, notDraw){
 
    if( index === MyBulletUID )
    {
+      CheckMyBestScore();
+      SendMyScore();
       SetMyBulletUID(-1);
    }
 };
+
+// 스코어 계산 begin ------------------
+function ResetMyScore(){
+   myScore = 0;
+}
+function SumMyScore(sum){
+   myScore += sum;
+}
+function GetMyScore(){
+   return (myScore / 1000).toFixed(3);
+}
+function GetMyBestScore(){
+ return (myBestScore / 1000).toFixed(3);  
+}
+
+// 내 스코어 계산
+function CheckMyScore(tick){
+   if( IsMyBulletAlive() === false )
+      return;
+   SumMyScore(tick);
+}
+function CheckMyBestScore(){
+   if( myScore > myBestScore )
+      myBestScore = myScore;
+}
+// 스코어 계산 end ------------------
 
 // 유저 수 텍스트 그리기. "User Now:"는 동접. "Total:"은 누적 유닉.
 function AddAndDrawUserCount(layer, UserCount){
@@ -217,7 +271,7 @@ function AddAndDrawUserCount(layer, UserCount){
 // Tick 텍스트 그리기. 서버에서 받은 클라 틱을 나타냄.
 function DrawServerTick(layer){
    layer.removeNode('serverTick');
-   var label = new pulse.CanvasLabel({ text: 'Tick : ' + serverTick });
+   var label = new pulse.CanvasLabel({ text: 'Tick : ' + serverTick.toFixed() });
    label.position = { x: 120, y : 35 };
    label.name = 'serverTick';
    layer.addNode(label);
@@ -237,4 +291,35 @@ function DrawButtonClear(layer){
    var label = new pulse.CanvasLabel({ text: 'Clear' });
    label.position = { x: 400, y : 35 };
    layer.addNode(label);
+}
+
+// my beat score.
+function DrawMyScore(layer){
+   layer.removeNode('MyScore');
+   var label = new pulse.CanvasLabel({ text: 'MyScore : ' + GetMyScore() + '  /  MyBestScore : ' + GetMyBestScore() });
+   label.position = { x: 300, y : 500 };
+   label.name = 'MyScore';
+   layer.addNode(label);
+}
+
+// server best score
+function DrawServerBestScoreTop(layer, i, score){
+   layer.removeNode('ServerBestScore' + i);
+   var label = new pulse.CanvasLabel({ text: '<TOP ' + (i+1) + '> : ' + score });
+   label.position = { x: 300, y : (560 + (i*20)) };
+   label.name = 'ServerBestScore' + i;
+   layer.addNode(label);
+}
+
+function DrawServerBestScore(layer){
+   layer.removeNode('ServerBestScore');
+   var label = new pulse.CanvasLabel({ text: '<Server Best Score Top 10>'});
+   label.position = { x: 300, y : 540 };
+   label.name = 'ServerBestScore';
+   layer.addNode(label);
+
+   for(var i = 0; i < 10; ++i){
+      var score = i >= serverBestScores.length ? 0 : serverBestScores[i];
+      DrawServerBestScoreTop(layer, i, score);
+   }
 }
