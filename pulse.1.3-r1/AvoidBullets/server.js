@@ -13,14 +13,17 @@ var btn_clear = {ws:350, we:450, hs:15, he:55};
 var TotalUser = 0; // 현재 동접
 var AccUserCount = 0; // 누적 접속자 수
 var UserInfo = {};
+var BulletInfo = {};
 var BALL_NUM_MAX = 3;
 
 var serverTick = 0;
 var startTime = 0;
 
 var bulletList = [];
-var MAX_BULLET = 50;
+var MAX_BULLET = 60;
+var MAX_BULLET_TYPE = [40, 10, 10];
 var numOfBullet = 0;
+var numOfBulletByType = [0, 0, 0];
 
 app.use(express.static(__dirname + '/'));
 app.get('/', function(req, res){
@@ -40,38 +43,20 @@ io.on('connection', function(socket){
 	socket.on('click req', function(args){
 		// 게임 레이어 클릭이면, 총알을 추가.
 		if( IsGameLayer(args['posx'].toFixed(), args['posy'].toFixed()) ){
-			AddBullet(io, socket, args);
-			/*
-			args['posx'] = args['posx'].toFixed();
-			args['posy'] = args['posy'].toFixed() - 80;
-			args['velx'] = ((Math.random() * 300) - 150).toFixed();
-			args['vely'] = ((Math.random() * 300) - 150).toFixed();
-			args['ballNum'] = UserInfo[GetUserKey(socket)];
-			args['startTick'] = GetServerTick();
-			args['uid'] = GetBulletUID();
-			
-			if( numOfBullet < MAX_BULLET )
+			if( args.uid >= 0 )
 			{
-				LogWithUserInfo(socket, 'clicked pos:' + args['posx'] + ',' + args['posy']
-										 + ' vel:' + args['velx'] + ',' + args['vely']
-										 + ' tick:' + args['startTick']
-										 + ' uid:' + args['uid']
-										 );
-				bulletList.push(args);
-				++numOfBullet;
-				SendServerSync(io);
-				io.emit('click ack', args);
+				// user key와 bullet uid가 동일해야, 내 총알이므로 조작 가능.
+				if( UserInfo[GetUserKey(socket)] == args.uid )
+					MoveBullet(args);
 			}
-			*/
+			else
+			{
+				AddBullet(common.BULLET_TYPE_MINE, args, socket);
+			}
 		}
 		// clear 버튼을 클릭했으면, clear 수행.
 		else if( IsButtonClear( args['posx'].toFixed(), args['posy'].toFixed()) ){
 			ClearBullets(io, socket);
-			/*
-			bulletList = [];
-			numOfBullet = 0;
-			SendInit(io, socket, true);
-			*/
 		}
 	});
 
@@ -101,6 +86,9 @@ function Tick(){
 		//console.log('tick : ' + serverTick);
 		CheckCollision();
 	}, 30);
+
+	// 1초마다 BASE BULLET 생성
+	setInterval(function(){CreateBaseBullet()}, 1000);
 }
 
 // 유저 최초 접속 시 처리. 기본적으로 전체 총알 데이터와 서버tick정보를 보낸다.
@@ -116,6 +104,11 @@ function SendInit(io, socket, isClear){
 	LogWithUserInfo(socket, 'send init. bullet size:' + bulletList.length);
 }
 
+function SendCreatedYourBullet(socket, uid){
+	var args = {uid: uid};
+	socket.emit('created your bullet', args);
+}
+
 // 유저 정보를 포함한 콘솔 로그 출력용 함수. socket에서 유저IP 및 포트를 추출한다.
 function LogWithUserInfo(socket, msg){
 	var clientIp = socket.request.connection.remoteAddress;
@@ -126,6 +119,7 @@ function LogWithUserInfo(socket, msg){
   				+ ' ('
 				+ 'IP: ' + clientIp
 				+ ' Port: ' + clientPort
+				+ ' SocketID: ' + socket.id
 				+ ')'
 				);
 }
@@ -142,14 +136,12 @@ function UpdateUserConnection(socket, isConnect){
 		TotalUser += 1;
 		AccUserCount += 1;
 		msg = 'connected';
-		UserInfo[GetUserKey(socket)] = GetBallNum();
+		//UserInfo[GetUserKey(socket)] = GetBallNum();
 	}
 	else{
 		TotalUser -= 1;
 		msg = 'disconnected';
 	}
-  	var clientIp = socket.request.connection.remoteAddress;
-  	var clientPort = socket.request.connection.remotePort;
 
 	LogWithUserInfo(socket, 'a user ' + msg + ' (total: '+TotalUser+', whole: ' + AccUserCount + ')');
 	var data = {TotalUser: TotalUser, AccUserCount: AccUserCount};
@@ -161,7 +153,7 @@ function UpdateUserConnection(socket, isConnect){
 function GetUserKey(socket){
 	var clientIp = socket.request.connection.remoteAddress;
   	var clientPort = socket.request.connection.remotePort;
-	return clientIp+clientPort;
+	return clientIp+clientPort+socket.id;
 }
 // --------------- check
 // 클릭 검사
@@ -214,30 +206,79 @@ function TickServerSync(io){
 
 // ---------- create bullet
 // 총알 생성. 클릭 위치에 생성하고, 랜덤한 방향 및 속도를 정한다.
-function AddBullet(io, socket, args){
+function AddBullet(BULLET_TYPE, args, socket){
+	if( numOfBulletByType[BULLET_TYPE] >= MAX_BULLET_TYPE[BULLET_TYPE])
+		return;
+
 	var newIndex = CreateBullet();
 	if( newIndex < 0 )
 		return;
 
 	args['posx'] = args['posx'].toFixed();
 	args['posy'] = args['posy'].toFixed() - 80;
-	args['velx'] = ((Math.random() * 300) - 150).toFixed();
-	args['vely'] = ((Math.random() * 300) - 150).toFixed();
-	args['ballNum'] = UserInfo[GetUserKey(socket)];
+	if( BULLET_TYPE === common.BULLET_TYPE_MINE )
+	{
+		args['velx'] = 0;
+		args['vely'] = 0;
+	}
+	else
+	{
+		args['velx'] = ((Math.random() * 300) - 150).toFixed();
+		args['vely'] = ((Math.random() * 300) - 150).toFixed();
+	}
+	args['ballNum'] = BULLET_TYPE;
 	args['startTick'] = GetServerTick();
 	args['uid'] = newIndex;
-	LogWithUserInfo(socket, 'clicked pos:' + args['posx'] + ',' + args['posy']
-							 + ' vel:' + args['velx'] + ',' + args['vely']
-							 + ' tick:' + args['startTick']
-							 + ' uid:' + args['uid']
-							 );
+	if( BULLET_TYPE == common.BULLET_TYPE_MINE )
+	{
+		Log('clicked pos:' + args['posx'] + ',' + args['posy']
+				 + ' vel:' + args['velx'] + ',' + args['vely']
+				 + ' tick:' + args['startTick']
+				 + ' uid:' + args['uid']
+				 );
+	}
 	if( newIndex >= bulletList.length )
 		bulletList.push(args);
 	else
 		bulletList[newIndex] = args;
 	++numOfBullet;
+	++numOfBulletByType[BULLET_TYPE];
 	SendServerSync(io);
+	if( typeof socket !== 'undefined'){		
+		UserInfo[GetUserKey(socket)] = newIndex;
+		BulletInfo[newIndex] = GetUserKey(socket);
+		SendCreatedYourBullet(socket, newIndex);
+	}
 	io.emit('click ack', args);
+	return newIndex;
+}
+
+function CalcVelocity(myPos, toPos){
+	return toPos - myPos;
+}
+
+function MoveBullet(args){
+	if( args.uid < 0 )
+		return;
+
+	var bullet = bulletList[args.uid];
+	var nowPos = GetBulletPosition(args.uid);
+	bulletList[args.uid].posx = nowPos.x;
+	bulletList[args.uid].posy = nowPos.y - 80;
+	bulletList[args.uid].velx = CalcVelocity(nowPos.x, args.posx);
+	bulletList[args.uid].vely = CalcVelocity(nowPos.y, args.posy);
+	bulletList[args.uid].startTick = GetServerTick();
+
+	io.emit('move bullet', bulletList[args.uid]);
+}
+
+// CREATE BASE BULLET
+var CreateBaseBullet = function(){
+	var args = {posx: 5, posy: 85};
+	AddBullet(common.BULLET_TYPE_BASE1, args);
+
+	var args2 = {posx: 635, posy: 85};
+	AddBullet(common.BULLET_TYPE_BASE2, args2);
 }
 
 // 총알 제거. 
@@ -246,15 +287,24 @@ function RemoveBullet(index){
 		return;
 	bulletList[index]['uid'] = -1;
 	--numOfBullet;
+	--numOfBulletByType[bulletList[index]['ballNum']];
 	args = {index: index, removedTick: GetServerTick()};
 	io.emit('remove bullet', args);
-	Log('remove bullet index : ' + index);
+	if( bulletList[index]['uid'].ballNum == common.BULLET_TYPE_MINE )
+	{
+		Log('remove bullet index : ' + index);
+		var userKey = BulletInfo[index];
+		UserInfo[userKey] = -1;
+	}
 }
 
 // 총알 모두 제거.
 function ClearBullets(io, socket){
 	bulletList = [];
 	numOfBullet = 0;
+	numOfBulletByType[common.BULLET_TYPE_MINE] = 0;
+	numOfBulletByType[common.BULLET_TYPE_BASE1] = 0;	
+	numOfBulletByType[common.BULLET_TYPE_BASE2] = 0;
 	SendInit(io, socket, true);
 	LogWithUserInfo(socket, 'clear bullets');
 }
@@ -297,6 +347,10 @@ function IsSameBullet(indexA, indexB){
 		return false;
 	if(IsExistBullet(indexB) === false)
 		return false;
+	if( bulletList[indexA].ballNum === common.BULLET_TYPE_MINE )
+		return false;
+	if( bulletList[indexB].ballNum === common.BULLET_TYPE_MINE )
+		return false;
 	return bulletList[indexA].ballNum === bulletList[indexB].ballNum;
 }
 
@@ -324,7 +378,7 @@ function CheckCollision(){
 			var bPos = GetBulletPosition(di);
 			if( common.IsOnCollision( aPos, bPos ) ){
 			//if( common.IsOnCollision( GetBulletPosition(ti), GetBulletPosition(di) ) ){
-				console.log('on collision ' + serverTick + ' ' + aPos.x+','+aPos.y + ' ' + bPos.x+','+bPos.y);
+				//console.log('on collision ' + serverTick + ' ' + aPos.x+','+aPos.y + ' ' + bPos.x+','+bPos.y);
 				RemoveBullet(ti);
 				RemoveBullet(di);
 				break;

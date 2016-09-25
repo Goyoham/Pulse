@@ -4,11 +4,16 @@ var serverTick = 0;
 var numOfBullet = 0;
 var MAX_BULLET = 50;
 
+var MyBulletUID = -1;
+
 var SCREEN_WIDTH = screen.we; //640
 var SCREEN_HEIGHT = screen.he;//480
 var SCREEN_TERM_TOP = screen.hs - 1;//79
 var SCREEN_GAME_WIDTH = SCREEN_WIDTH;//640
 var SCREEN_GAME_HEIGHT = SCREEN_HEIGHT - SCREEN_TERM_TOP;//400
+
+var MOUSE_EVENT_DOWN = false;
+var MOUSE_EVENT_INTERVAL = true;
 
 pulse.ready(function() {
    // GameEngine 기본 처리 시작 -------------------------
@@ -36,10 +41,20 @@ pulse.ready(function() {
 
    // 마우스 클릭 시 서버로 req 전송
    game_layer.events.bind('mousedown', function(args) {
-      socket.emit('click req', { 
-         posx: args.position.x
-         , posy: args.position.y
-      });
+      MOUSE_EVENT_DOWN = true;
+      SendMouseEvent(socket, args, 50);
+   });
+
+   game_layer.events.bind('mouseup', function(args) {
+      MOUSE_EVENT_DOWN = false;
+      MOUSE_EVENT_INTERVAL = true;
+   });
+
+   game_layer.events.bind('mousemove', function(args) {
+      if( MOUSE_EVENT_DOWN === false )
+         return;
+      //console.log(args);
+      SendMouseEvent(socket, args, 100);
    });
 
    // 최초로 텍스트 그려줌
@@ -70,9 +85,18 @@ pulse.ready(function() {
       AddBullet(game_layer, args);
    });
 
+   socket.on('created your bullet', function(args){
+      SetMyBulletUID(args.uid);
+   });
+
+   // 클릭으로 내 총알 이동
+   socket.on('move bullet', function(args){
+      console.log('move bullet ' + args.uid);
+      ChangeBulletVelocity(game_layer, args);
+   });   
+
    // 총알 지우기 패킷 받기
    socket.on('remove bullet', function(args){
-      //ReserveBulletToRemove(args);
       RemoveBullet(game_layer, args.index);
    });
 
@@ -86,16 +110,45 @@ pulse.ready(function() {
    gane_engine.go(30);
 
    setInterval(function(){
-      CheckRemoveBullets(game_layer);
+      
    }, 30);
 });
+
+function SendMouseEvent(socket, args, interval){
+   if( MOUSE_EVENT_INTERVAL === false )
+      return;
+
+   socket.emit('click req', { 
+      posx: args.position.x
+      , posy: args.position.y
+      , uid: MyBulletUID
+   });
+
+   MOUSE_EVENT_INTERVAL = false;
+   setTimeout(function(){
+      MOUSE_EVENT_INTERVAL = true;
+   }, interval);
+}
+
+// 내 총알 UID SET
+function SetMyBulletUID(uid){
+   MyBulletUID = uid;
+   console.log('my bullet uid : ' + MyBulletUID);
+}
 
 // 총알을 하나 추가한다.
 function AddBullet(layer, args){
    if( args.uid < 0)
       return;
 
-   var ball = new Bullet({ballNum: args['ballNum']});
+   var bullNum = args['ballNum'];
+   if( bullNum === common.BULLET_TYPE_MINE 
+      && MyBulletUID !== args['uid'] )
+   {
+      bullNum = common.BULLET_TYPE_ENEMY;
+   }
+
+   var ball = new Bullet({ballNum: bullNum});
       ball.position = { x: args['posx'], y: args['posy'] };
       ball.startPos = { x: args['posx'], y: args['posy'] };
       ball.velocity = { x: args['velx'], y:  args['vely'] };
@@ -107,6 +160,23 @@ function AddBullet(layer, args){
       layer.addNode(ball);
       ++numOfBullet;
       DrawNumOfBullet(layer);
+}
+
+function ChangeBulletVelocity(layer, args){
+   var node = layer.getNode('bullet' + args.uid);
+   if( typeof node === 'undefined' )
+   {
+      console.log('cannot find bullet' + args.uid);
+      return;
+   }
+
+   node.position = { x: args['posx'], y: args['posy'] };
+   node.startPos = { x: args['posx'], y: args['posy'] };
+   node.velocity = { x: args['velx'], y:  args['vely'] };
+   node.startVel = { x: args['velx'], y:  args['vely'] };
+   node.startTick = args['startTick'];
+   node.lastSyncTick = args['startTick'];
+   node.sumElapsedMS = 0;
 }
 
 // 총알을 모두 지운다.
@@ -128,35 +198,12 @@ var RemoveBullet = function(layer, index, notDraw){
       DrawNumOfBullet(layer);
    }
    layer.removeNode('bullet' + index);
-};
 
-// 총알 지우기 예약. 클라 서버 타이밍을 맞추기 위해.
-var reservedBulletsToRemove = [];
-function ReserveBulletToRemove(args){
-   reservedBulletsToRemove.push(args);
-}
-
-var CheckRemoveBullets = function(layer){
-   while(reservedBulletsToRemove.length > 0){
-      var index = reservedBulletsToRemove[0].index;
-      var removedTick = reservedBulletsToRemove[0].removedTick;
-      var node = layer.getNode('bullet' + index);
-      if( typeof node === 'undefined')
-      {
-         reservedBulletsToRemove.shift();
-         continue;
-      }
-      var nowTick = node.GetTotalTick();
-      if( nowTick >= removedTick )
-      {
-         RemoveBullet(layer, index);
-      }
-      else
-      {
-         break;
-      }
+   if( index === MyBulletUID )
+   {
+      SetMyBulletUID(-1);
    }
-}
+};
 
 // 유저 수 텍스트 그리기. "User Now:"는 동접. "Total:"은 누적 유닉.
 function AddAndDrawUserCount(layer, UserCount){
@@ -179,7 +226,7 @@ function DrawServerTick(layer){
 // NumOfBullet 텍스트 그리기. 현재 총알 갯수를 나타냄.
 function DrawNumOfBullet(layer){
    layer.removeNode('NumOfBullet');
-   var label = new pulse.CanvasLabel({ text: 'NumOfBullet : ' + numOfBullet + '/50' });
+   var label = new pulse.CanvasLabel({ text: 'NumOfBullet : ' + numOfBullet + '/60' });
    label.position = { x: 120, y : 55 };
    label.name = 'NumOfBullet';
    layer.addNode(label);

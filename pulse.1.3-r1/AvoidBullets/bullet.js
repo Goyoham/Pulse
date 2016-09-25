@@ -1,8 +1,9 @@
 // 각 총알의 이미지
 var BallNum = [
-   'imgs/bullet.png'
-   , 'imgs/ship_mine.png'
-   , 'imgs/ship_other.png'
+   'imgs/ship_mine.png'           // MY BULLET
+   , 'imgs/ship_other_player.png' // OTHER PLAYER BULLET
+   , 'imgs/base_bullet1.png'      // BASE BULLET
+   , 'imgs/base_bullet2.png'      // BLUE BULLET
 ];
 
 // 총알 클래스의 정의. pulse엔진의 Sprite를 상속받는다.

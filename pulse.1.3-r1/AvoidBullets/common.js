@@ -27,6 +27,11 @@ var common = require('./common.js'); 형태로 하면, 마찬가지로 "common.�
 */
 (function(exports){ // 익명 즉시 실행 함수(Immediately-invoked function expression)
 
+   exports.BULLET_TYPE_MINE = 0;
+   exports.BULLET_TYPE_ENEMY = 1;
+   exports.BULLET_TYPE_BASE1 = 2;
+   exports.BULLET_TYPE_BASE2 = 3;
+
    // 지난시간(tick), 시작위치(startPos), 맵크기(mapSize), 이동방향(velocity)를 받아서, 현재 위치를 계산한다.
    exports.GetPositionEach = function(tick_, startPos_, mapSize_, velocity_){
       var velAbs = Math.abs(velocity_);
