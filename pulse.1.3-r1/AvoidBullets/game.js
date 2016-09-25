@@ -310,7 +310,7 @@ function DrawServerBestScoreTop(layer, i, data){
       var newData = {nickname: '', score: 0};
       data = newData;
    }
-   var label = new pulse.CanvasLabel({ text: '<TOP ' + (i+1) + '> : ' + data.score + ' ('+data.nickname+')' });
+   var label = new pulse.CanvasLabel({ text: '<TOP ' + (i+1) + '> : ' + (data.score*=1).toFixed(3) + ' ('+data.nickname+')' });
    label.position = { x: 300, y : (560 + (i*20)) };
    label.name = 'ServerBestScore' + i;
    layer.addNode(label);

@@ -413,6 +413,8 @@ function CheckBestScore(socket, args){
 		bNewScore = true;
 	}
 	else{
+		rankData.score *= 1;
+		bestScore[MaxRankSize-1].score *= 1;
 		if(rankData.score > bestScore[MaxRankSize-1].score)
 		{
 			bestScore.push(rankData);
