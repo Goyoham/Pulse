@@ -406,26 +406,26 @@ function CheckBestScore(socket, args){
 
 	// 2. 랭크 계산
 	var bNewScore = false;
-	console.log('check score ' + args.score);
+	var rankData = {nickname: socket.request.connection.remoteAddress, score: args.score};
+	console.log('check score ' + rankData);
 	if( bestScore.length < MaxRankSize ){
-		bestScore.push(args.score);
+		bestScore.push(rankData);
 		bNewScore = true;
 	}
 	else{
-		if(args.score > bestScore[MaxRankSize-1])
+		if(rankData.score > bestScore[MaxRankSize-1])
 		{
-			bestScore.push(args.score);
+			bestScore.push(rankData);
 			bNewScore = true;
 		}
 	}
 
 	if( bNewScore ){
-		bestScore.sort(function(a, b){return b-a});
+		bestScore.sort(function(a, b){return b.score-a.score});
 		if( bestScore.length > MaxRankSize )
 			bestScore.length = MaxRankSize;
 		SendBestScore();
-		Log('new score ' + args.score);
-		Log('bestScore : ' + bestScore);
+		Log('new score ' + rankData.score);
 	}
 }
 

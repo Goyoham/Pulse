@@ -303,9 +303,14 @@ function DrawMyScore(layer){
 }
 
 // server best score
-function DrawServerBestScoreTop(layer, i, score){
+function DrawServerBestScoreTop(layer, i, data){
    layer.removeNode('ServerBestScore' + i);
-   var label = new pulse.CanvasLabel({ text: '<TOP ' + (i+1) + '> : ' + score });
+   if( typeof data.score === 'undefined')
+   {
+      var newData = {nickname: '', score: 0};
+      data = newData;
+   }
+   var label = new pulse.CanvasLabel({ text: '<TOP ' + (i+1) + '> : ' + data.score + ' ('+data.nickname+')' });
    label.position = { x: 300, y : (560 + (i*20)) };
    label.name = 'ServerBestScore' + i;
    layer.addNode(label);
@@ -319,7 +324,7 @@ function DrawServerBestScore(layer){
    layer.addNode(label);
 
    for(var i = 0; i < 10; ++i){
-      var score = i >= serverBestScores.length ? 0 : serverBestScores[i];
-      DrawServerBestScoreTop(layer, i, score);
+      var data = i >= serverBestScores.length ? 0 : serverBestScores[i];
+      DrawServerBestScoreTop(layer, i, data);
    }
 }
