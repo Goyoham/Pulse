@@ -84,17 +84,35 @@ function Tick(){
 
 	console.log('* Server Started Time : ' + GetDate());
 
+	/* // tick 도는 시간 검사용 로그
+	var checkTickCount = 0;
+	var checkTickTime = 0;
+	var lastTick = 0;
+	*/
+
 	// setInterval은 특정 시간마다 특정 함수를 호출.
-	// 아래 함수를 30ms마다 호출한다.
+	// 아래 함수를 20ms마다 호출한다.
 	setInterval(function(){
 		var time = new Date();
 		var t = time.getTime();
 		serverTick = GetServerTick();
-		//console.log('tick : ' + serverTick);
+		
 		CheckCollision();
-	}, 30);
+		
+		/* // tick 도는 시간 검사용 로그
+		++checkTickCount;
+		checkTickTime += (serverTick - lastTick);
+		lastTick = serverTick;
+		if( checkTickTime > 5 )
+		{
+			console.log('avg : ' + (checkTickTime / checkTickCount) );
+			checkTickTime = 0;
+			checkTickCount = 0;
+		}
+		*/
+	}, 10);
 
-	// 1초마다 BASE BULLET 생성
+	// n초마다 BASE BULLET 생성
 	setInterval(function(){CreateBaseBullet(common.BULLET_TYPE_BASE1)}, 500);
 	setInterval(function(){CreateBaseBullet(common.BULLET_TYPE_BASE2)}, 1000);
 }
