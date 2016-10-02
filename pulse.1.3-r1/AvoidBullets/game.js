@@ -110,6 +110,7 @@ pulse.ready(function() {
    socket.on('serverSync', function(args){
       serverTick = args['serverTick'];
       DrawServerTick(game_layer);
+      SyncBulletsPosition(game_layer);
    });
 
    // best score 받기
@@ -205,6 +206,16 @@ function ChangeBulletVelocity(layer, args){
    node.sumElapsedMS = 0;
 }
 
+// 총알 tick 오차 싱크
+function SyncBulletsPosition(layer){
+   for(var index = 0; index < numOfBullet; ++index){
+      var node = layer.getNode('bullet' + index);
+      if( typeof node === 'undefined' )
+         return;
+      node.SyncServerTick();
+   }
+}   
+
 // 총알을 모두 지운다.
 function ClearBullet(layer){
    for(var i = 0; i < MAX_BULLET; ++i)
@@ -254,8 +265,16 @@ function CheckMyScore(tick){
    SumMyScore(tick);
 }
 function CheckMyBestScore(){
-   if( myScore > myBestScore )
+   var newBest = false;
+   if( myScore > myBestScore ){
       myBestScore = myScore;
+      newBest = true;
+   }
+
+   // 죽었을 시 팝업
+   var str = newBest ? 'New Best!!' : '';
+   str += ' Score : ';
+   alert(str + GetMyScore() + ' seconds');
 }
 // 스코어 계산 end ------------------
 

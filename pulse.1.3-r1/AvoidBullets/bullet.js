@@ -71,8 +71,19 @@ Bullet.prototype.GetPos = function(){
    return common.GetPosition(this.lastSyncTick, this.startPos, this.velocity);
 }
 
+// 총알의 현재tick. serverTick과 동기화 되어야 함.
 Bullet.prototype.GetTotalTick = function(){
    return this.startTick + this.sumElapsedMS;
+}
+
+// 틱 동기화
+Bullet.prototype.SyncServerTick = function(){
+   var diff = Math.abs( this.GetTotalTick() - serverTick );
+   if( diff < 0.1 ) // 오차가 0.1초 이내면 무시
+      return;
+
+   console.log('sync : ' + this.GetTotalTick() );
+   this.Run();
 }
 
 // 아래는 Bullet 클래스의 멤버변수 선언 및 초기화.
