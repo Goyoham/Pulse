@@ -59,7 +59,7 @@ io.on('connection', function(socket){
 		}
 		// clear 버튼을 클릭했으면, clear 수행.
 		else if( IsButtonClear( args['posx'].toFixed(), args['posy'].toFixed()) ){
-			ClearBullets(io, socket);
+			//ClearBullets(io, socket);
 		}
 	});
 

@@ -63,7 +63,7 @@ pulse.ready(function() {
 
    // 최초로 텍스트 그려줌
    DrawNumOfBullet(game_layer);
-   DrawButtonClear(game_layer);
+   //DrawButtonClear(game_layer);
    DrawServerBestScore(game_layer);
 
    // 유저 접속시 패킷 받기
