@@ -81,8 +81,6 @@ Bullet.prototype.SyncServerTick = function(){
    var diff = Math.abs( this.GetTotalTick() - serverTick );
    if( diff < 0.1 ) // 오차가 0.1초 이내면 무시
       return;
-
-   console.log('sync : ' + this.GetTotalTick() );
    this.Run();
 }
 
