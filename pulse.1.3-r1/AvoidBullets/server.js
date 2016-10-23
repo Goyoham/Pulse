@@ -311,6 +311,32 @@ var CreateBaseBullet = function(type){
 	AddBullet(type, args);
 }
 
+// 총알 제거 예약 0.3초 후.
+function ReserveToRemoveBullet(index){
+	if( IsExistBullet(index) === false )
+		return;
+	bulletList[index].reservedToRemove = true;
+	bulletList[index].reservedTickToRemove = GetServerTick() + 0.1;
+}
+
+function IsReservedToRemove(index){
+	if( IsExistBullet(index) === false )
+		return;
+	if( bulletList[index].reservedToRemove === true )
+		return true;
+	return false;
+}
+
+// 삭제 예약 시간이 되었다.
+function IsTimeToRemove(index){
+	if( IsReservedToRemove(index) === false )
+		return false;
+	var removeTick = GetServerTick();
+	if( removeTick >= bulletList[index].reservedTickToRemove )
+		return true;
+	return false;
+}
+
 // 총알 제거. 
 function RemoveBullet(index){
 	if( IsExistBullet(index) === false )
@@ -398,6 +424,17 @@ function CheckCollision(){
 	for(var ti = 0; ti < bulletList.length - 1; ++ti){
 		if( IsExistBullet(ti) === false )
 			continue;
+		
+		// 충돌 검사 전에 삭제예약한 친구는 제외. 삭제 시간 되었으면 삭제도 하자.
+		/*
+		if( IsReservedToRemove(ti) ){
+			if( IsTimeToRemove(ti) ){
+				RemoveBullet(ti);
+			}
+			continue;
+		}
+		*/
+
 		for(var di = ti + 1; di < bulletList.length; ++di){
 			if( IsExistBullet(di) === false )
 				continue;
@@ -407,10 +444,11 @@ function CheckCollision(){
 			var aPos = GetBulletPosition(ti);
 			var bPos = GetBulletPosition(di);
 			if( common.IsOnCollision( aPos, bPos ) ){
-			//if( common.IsOnCollision( GetBulletPosition(ti), GetBulletPosition(di) ) ){
-				//console.log('on collision ' + serverTick + ' ' + aPos.x+','+aPos.y + ' ' + bPos.x+','+bPos.y);
 				RemoveBullet(ti);
 				RemoveBullet(di);
+				//ReserveToRemoveBullet(ti);
+				//ReserveToRemoveBullet(di);
+				//console.log('remove : ' + ti + ' ' + di);
 				break;
 			}
 		}

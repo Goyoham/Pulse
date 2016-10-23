@@ -123,6 +123,7 @@ pulse.ready(function() {
    gane_engine.go(30);
 
    setInterval(function(){
+      //CheckCollision(game_layer);
       CheckMyScore(30);
       DrawMyScore(game_layer);
    }, 30);
@@ -243,6 +244,40 @@ var RemoveBullet = function(layer, index, notDraw){
       SetMyBulletUID(-1);
    }
 };
+
+// 총알 충돌 클라에서 계산
+function CheckCollision(layer){
+   var Bullets = layer.getNodesByType(Bullet);
+   
+   var bulletList = [];
+   for(var name in Bullets) {
+      bulletList.push( layer.getNode(name) );
+   }
+   //console.log(bulletList.length);
+   
+   for(var ti = 0; ti < bulletList.length - 1; ++ti){
+      var bulletA = bulletList[ti];
+      if( bulletA.visible === false )
+         continue;
+
+      for(var di = ti + 1; di < bulletList.length; ++di){
+         var bulletB = bulletList[di];
+         if( bulletB.visible === false )
+            continue;
+         
+         if( bulletA.ballNum === bulletB.ballNum )
+            continue;        
+
+         if( common.IsOnCollision( bulletA.GetPos(), bulletB.GetPos() ) ){
+            bulletA.visible = false;
+            bulletB.visible = false;
+            console.log('invisible : ' + bulletA.name + ' ' + bulletB.name);
+            break;
+         }
+      }
+   }
+   
+}
 
 // 스코어 계산 begin ------------------
 function ResetMyScore(){

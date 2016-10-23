@@ -19,6 +19,7 @@ var Bullet = pulse.Sprite.extend({
       else
          args.src = BallNum[args['ballNum']];
       
+      this.ballNum = ballNum;
       this._super(args);
    },
 
@@ -79,7 +80,7 @@ Bullet.prototype.GetTotalTick = function(){
 // 틱 동기화
 Bullet.prototype.SyncServerTick = function(){
    var diff = Math.abs( this.GetTotalTick() - serverTick );
-   if( diff < 0.1 ) // 오차가 0.1초 이내면 무시
+   if( diff < 0.2 ) // 오차가 0.2초 이내면 무시
       return;
    this.Run();
 }
@@ -90,3 +91,4 @@ Bullet.prototype.lastSyncTick = 0;           // 마지막 싱크 된 tick
 Bullet.prototype.startPos = { x : 0, y : 0 } // 생성된 위치
 Bullet.prototype.startVel = { x : 0, y : 0 } // 생성시 방향
 Bullet.prototype.sumElapsedMS = 0;           // 생성 후 지난 시간 tick
+Bullet.prototype.ballNum = 0;               // 공 종류 (색깔)
