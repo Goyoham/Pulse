@@ -32,6 +32,9 @@ var common = require('./common.js'); 형태로 하면, 마찬가지로 "common.�
    exports.BULLET_TYPE_BASE1 = 2;
    exports.BULLET_TYPE_BASE2 = 3;
 
+   exports.CHECK_COLLISION_TICK_TERM = 0.005; // 5ms마다 짤라서 공 충돌 검사
+   exports.MAX_BULLET = 60;
+
    // 지난시간(tick), 시작위치(startPos), 맵크기(mapSize), 이동방향(velocity)를 받아서, 현재 위치를 계산한다.
    exports.GetPositionEach = function(tick_, startPos_, mapSize_, velocity_){
       var velAbs = Math.abs(velocity_);
@@ -70,12 +73,16 @@ var common = require('./common.js'); 형태로 하면, 마찬가지로 "common.�
 
    // 두 개의 좌표가 충돌했는지 검사
    exports.IsOnCollision = function(aPos, bPos){
+      if( aPos.x < 0 || aPos.y < 0 || bPos.x < 0 || bPos.y < 0 )
+         return false;
       if( aPos.x - bulletSize > bPos.x || aPos.x + 4 < bPos.x)
          return false;
       if( aPos.y - bulletSize > bPos.y || aPos.y + 4 < bPos.y)
          return false;
+      console.log(aPos.x+' '+aPos.y+','+bPos.x+' '+bPos.y);
       return true;
    };
+
 }(typeof exports === 'undefined'? this['common']={}: exports));
 
 

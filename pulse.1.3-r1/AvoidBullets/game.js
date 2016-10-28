@@ -1,8 +1,8 @@
 var socket = io();
 
 var serverTick = 0;
+var lastCheckedCollisionTick = 0;
 var numOfBullet = 0;
-var MAX_BULLET = 50;
 
 var MyBulletUID = -1;
 
@@ -74,10 +74,12 @@ pulse.ready(function() {
    // 유저 접속시 또는 새로고침시 전체 총알 위치 데이터 받기
    socket.on('init', function(initData){
       serverTick = initData.serverTick;
+      lastCheckedCollisionTick = initData.collisionTick;
       var bulletList = initData.bulletList;
       ClearBullet(game_layer);
-      for(var i = 0; i < bulletList.length; ++i)
+      for(var i = 0; i < bulletList.length; ++i){
          AddBullet(game_layer, bulletList[i]);
+      }
    });
 
    // 유저 접속 종료시 패킷 받기
@@ -103,7 +105,7 @@ pulse.ready(function() {
 
    // 총알 지우기 패킷 받기
    socket.on('remove bullet', function(args){
-      RemoveBullet(game_layer, args.index);
+      RemoveBullet(game_layer, args);
    });
 
    // 서버 틱 패킷 받기
@@ -123,10 +125,14 @@ pulse.ready(function() {
    gane_engine.go(30);
 
    setInterval(function(){
-      //CheckCollision(game_layer);
-      CheckMyScore(30);
+      while( lastCheckedCollisionTick < serverTick )
+      {
+         CheckCollision(game_layer, lastCheckedCollisionTick);            
+         lastCheckedCollisionTick = 1*(lastCheckedCollisionTick + common.CHECK_COLLISION_TICK_TERM).toFixed(3);
+      }
+      CheckMyScore(10);
       DrawMyScore(game_layer);
-   }, 30);
+   }, 10);
 });
 
 function SendMouseEvent(args, interval){
@@ -188,6 +194,7 @@ function AddBullet(layer, args){
       layer.addNode(ball);
       ++numOfBullet;
       DrawNumOfBullet(layer);
+   console.log('add bullet uid:' + args.uid + ', startTick:' + args.startTick);
 }
 
 function ChangeBulletVelocity(layer, args){
@@ -209,32 +216,58 @@ function ChangeBulletVelocity(layer, args){
 
 // 총알 tick 오차 싱크
 function SyncBulletsPosition(layer){
+   var needToSynk = false;
    for(var index = 0; index < numOfBullet; ++index){
       var node = layer.getNode('bullet' + index);
       if( typeof node === 'undefined' )
          return;
-      node.SyncServerTick();
+      // 싱크가 하나라도 안 맞으면,
+      if( node.IsNeedToSyncServerTick() === true ){
+         needToSynk = true;
+         break;
+      }
+   }
+
+   if( needToSynk === false )
+      return;
+
+   // 전체 싱크
+   for(var index = 0; index < numOfBullet; ++index){
+      var node = layer.getNode('bullet' + index);
+      if( typeof node === 'undefined' )
+         return;
+      node.Run();
    }
 }   
 
 // 총알을 모두 지운다.
 function ClearBullet(layer){
-   for(var i = 0; i < MAX_BULLET; ++i)
-      RemoveBullet(layer, i, true);
+   for(var i = 0; i < common.MAX_BULLET; ++i){
+      var args = {index: i};
+      RemoveBullet(layer, args, true);
+   }
    numOfBullet = 0;
    DrawNumOfBullet(layer);
 }
 
 // 총알을 지운다. index로 지울 총알을 정함.
-var RemoveBullet = function(layer, index, notDraw){
+var RemoveBullet = function(layer, args, notDraw){
+   var index = args.index;
    if( notDraw !== true )
-   {
-      var node = layer.getNode('bullet' + index);
-      var pos = node.GetPos();
-      //console.log('remove index:'+ index + ' tick:' + serverTick + ' pos:' + pos.x + ',' +pos.y);
+   {  
       --numOfBullet;
       DrawNumOfBullet(layer);
+
+      // log
+      var node = layer.getNode('bullet' + index);
+      if( node.visible === true )
+      {         
+         var pos = node.GetPosCollision(args.removedTick);
+         console.log(lastCheckedCollisionTick);
+         console.log('visible remove index:'+ index + ' ct:' + args.removedTick + ' pos:' + pos.x + ',' +pos.y);
+      }
    }
+
    layer.removeNode('bullet' + index);
 
    if( index === MyBulletUID )
@@ -246,37 +279,40 @@ var RemoveBullet = function(layer, index, notDraw){
 };
 
 // 총알 충돌 클라에서 계산
-function CheckCollision(layer){
-   var Bullets = layer.getNodesByType(Bullet);
-   
-   var bulletList = [];
-   for(var name in Bullets) {
-      bulletList.push( layer.getNode(name) );
-   }
-   //console.log(bulletList.length);
-   
-   for(var ti = 0; ti < bulletList.length - 1; ++ti){
-      var bulletA = bulletList[ti];
-      if( bulletA.visible === false )
+function CheckCollision(layer, collisionTick){
+   var log = false;
+   var vec1 = [];
+   for(var ti = 0; ti < common.MAX_BULLET - 1; ++ti){
+      var bulletA = layer.getNode('bullet' + ti);
+      if( typeof bulletA === 'undefined' || bulletA.visible === false )
          continue;
 
-      for(var di = ti + 1; di < bulletList.length; ++di){
-         var bulletB = bulletList[di];
-         if( bulletB.visible === false )
-            continue;
-         
+      vec1.push(ti);
+      var vec2 = [];
+      for(var di = ti + 1; di < common.MAX_BULLET; ++di){
+         var bulletB = layer.getNode('bullet' + di);
+         if( typeof bulletB === 'undefined' || bulletB.visible === false )
+            continue;         
          if( bulletA.ballNum === bulletB.ballNum )
             continue;        
 
-         if( common.IsOnCollision( bulletA.GetPos(), bulletB.GetPos() ) ){
+         vec2.push(di);
+         if( common.IsOnCollision( bulletA.GetPosCollision(collisionTick), bulletB.GetPosCollision(collisionTick) ) ){
             bulletA.visible = false;
             bulletB.visible = false;
-            console.log('invisible : ' + bulletA.name + ' ' + bulletB.name);
+            console.log('invisible : ' + bulletA.name + ' ' + bulletB.name + ' ct:'+collisionTick);
+            var args = {};
+            args.ti = ti;
+            args.di = di;
+            args.collisionTick = collisionTick;
+            socket.emit('check collision', args);
+            //console.log('vec di : ' + vec2);
             break;
          }
       }
    }
-   
+   //if( log === true )
+   //   console.log('vec ti : ' + vec1);
 }
 
 // 스코어 계산 begin ------------------
@@ -334,7 +370,7 @@ function DrawServerTick(layer){
 // NumOfBullet 텍스트 그리기. 현재 총알 갯수를 나타냄.
 function DrawNumOfBullet(layer){
    layer.removeNode('NumOfBullet');
-   var label = new pulse.CanvasLabel({ text: 'NumOfBullet : ' + numOfBullet + '/60' });
+   var label = new pulse.CanvasLabel({ text: 'NumOfBullet : ' + numOfBullet + '/' + common.MAX_BULLET });
    label.position = { x: 120, y : 55 };
    label.name = 'NumOfBullet';
    layer.addNode(label);

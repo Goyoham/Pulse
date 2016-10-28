@@ -20,8 +20,7 @@ var serverTick = 0;
 var startTime = 0;
 
 var bulletList = [];
-var MAX_BULLET = 60;
-var MAX_BULLET_TYPE = [10, 10, 40, 10];
+var MAX_BULLET_TYPE = [10, 10, 10, 10]; // mine, enemy, base1, base2
 var numOfBullet = 0;
 var numOfBulletByType = [0, 0, 0, 0];
 
@@ -72,11 +71,25 @@ io.on('connection', function(socket){
 		CheckBestScore(socket, args);
 	});
 
+	socket.on('check collision', function(args){
+		console.log(args.ti + ' ' + bulletList[args.ti].reservedToRemove + ' ' + args.collisionTick);
+		console.log(args.di + ' ' + bulletList[args.di].reservedToRemove + ' ' + args.collisionTick);
+		if( bulletList[args.ti].reservedToRemove === false || bulletList[args.di].reservedToRemove === false ){
+			var aPos = GetBulletPosition(args.ti, args.collisionTick);
+			var bPos = GetBulletPosition(args.di, args.collisionTick);
+			console.log('check collision : ' + aPos.x+' '+aPos.y+','+bPos.x+' '+bPos.y);
+			if( common.IsOnCollision( aPos, bPos ) ){
+				console.log('onCollision!!');
+			}
+		}
+	});
+
 	TickServerSync(io);
 });
 
 Tick();
 
+var lastCheckedCollisionTick = 0;
 // 서버 틱 계산
 function Tick(){
 	var date = new Date();
@@ -97,7 +110,11 @@ function Tick(){
 		var t = time.getTime();
 		serverTick = GetServerTick();
 		
-		CheckCollision();
+		while( lastCheckedCollisionTick < serverTick )
+		{
+			CheckCollision( lastCheckedCollisionTick );
+			lastCheckedCollisionTick = 1*(lastCheckedCollisionTick + common.CHECK_COLLISION_TICK_TERM).toFixed(3);
+		}
 		
 		/* // tick 도는 시간 검사용 로그
 		++checkTickCount;
@@ -122,7 +139,10 @@ function SendInit(io, socket, isClear){
 	serverTick = GetServerTick();
 	SendServerSync(io);
 
-	var initData = { serverTick: serverTick, bulletList: bulletList };
+	var initData = {};
+	initData.serverTick = serverTick;
+	initData.collisionTick = lastCheckedCollisionTick;
+	initData.bulletList = bulletList;
 	if( isClear )	// clear버튼 누른거라면,
 		io.emit('init', initData); // 전체 유저에게 보내기
 	else			// 그게 아니면 최초 접속
@@ -278,6 +298,7 @@ function AddBullet(BULLET_TYPE, args, socket){
 		SendCreatedYourBullet(socket, newIndex);
 	}
 	io.emit('click ack', args);
+	console.log('add bullet uid:' + newIndex + ', startTick:' + args.startTick);
 	return newIndex;
 }
 
@@ -316,7 +337,7 @@ function ReserveToRemoveBullet(index){
 	if( IsExistBullet(index) === false )
 		return;
 	bulletList[index].reservedToRemove = true;
-	bulletList[index].reservedTickToRemove = GetServerTick() + 0.1;
+	bulletList[index].reservedTickToRemove = lastCheckedCollisionTick;
 }
 
 function IsReservedToRemove(index){
@@ -332,7 +353,7 @@ function IsTimeToRemove(index){
 	if( IsReservedToRemove(index) === false )
 		return false;
 	var removeTick = GetServerTick();
-	if( removeTick >= bulletList[index].reservedTickToRemove )
+	if( removeTick >= (bulletList[index].reservedTickToRemove + 1)*1 )
 		return true;
 	return false;
 }
@@ -340,12 +361,17 @@ function IsTimeToRemove(index){
 // 총알 제거. 
 function RemoveBullet(index){
 	if( IsExistBullet(index) === false )
-		return;
+		return;	
+
+	var args = {};
+	args.index = index;
+	args.removedTick = bulletList[index].reservedTickToRemove;
+	io.emit('remove bullet', args);
+
 	bulletList[index]['uid'] = -1;
 	--numOfBullet;
 	--numOfBulletByType[bulletList[index]['ballNum']];
-	args = {index: index, removedTick: GetServerTick()};
-	io.emit('remove bullet', args);
+
 	if( bulletList[index]['uid'].ballNum == common.BULLET_TYPE_MINE )
 	{
 		Log('remove bullet index : ' + index);
@@ -367,12 +393,16 @@ function ClearBullets(io, socket){
 
 // 총알 index 생성. 중복되지 않는 uid 생성을 위함.
 function CreateBullet(){
-	if( numOfBullet >= MAX_BULLET )
+	if( numOfBullet >= common.MAX_BULLET )
 		return -1;
 
 	for(var i = 0; i < bulletList.length; ++i){
-		if( bulletList[i].uid < 0 )
-			return i;
+		if( bulletList[i].uid >= 0 )
+			continue;
+		// 삭제 5초 후 UID 다시 사용 가능.
+		if( bulletList[i].reservedTickToRemove + 5 > GetServerTick() )
+			continue;
+		return i;
 	}
 	return bulletList.length;
 }
@@ -411,48 +441,59 @@ function IsSameBullet(indexA, indexB){
 }
 
 // 현재 총알의 위치 계산
-function GetBulletPosition(index){
+function GetBulletPosition(index, collisionTick){
 	var startPos = {x: bulletList[index].posx, y: bulletList[index].posy };
 	var vel = {x: bulletList[index].velx, y: bulletList[index].vely };
-	var tick = serverTick - bulletList[index].startTick;
+	if( typeof collisionTick === 'undefined' )
+		collisionTick = serverTick;
+	var tick = collisionTick - bulletList[index].startTick;
 	return common.GetPosition(tick, startPos, vel);
 }
 
 // 총알 전체를 루프 돌면서 충돌한 총알이 있는지 검사.
 // 이렇게 루프를 다 돌아버려도 되는건지 의문이다.
-function CheckCollision(){
+function CheckCollision(collisionTick){
+	var log = false;
+	var vec1 = [];
 	for(var ti = 0; ti < bulletList.length - 1; ++ti){
 		if( IsExistBullet(ti) === false )
 			continue;
 		
-		// 충돌 검사 전에 삭제예약한 친구는 제외. 삭제 시간 되었으면 삭제도 하자.
-		/*
+		// 충돌 검사 전에 삭제예약한 친구는 제외. 삭제 시간 되었으면 삭제도 하자.		
 		if( IsReservedToRemove(ti) ){
 			if( IsTimeToRemove(ti) ){
 				RemoveBullet(ti);
 			}
 			continue;
 		}
-		*/
 
+		vec1.push(ti);
+		var vec2 = [];
 		for(var di = ti + 1; di < bulletList.length; ++di){
 			if( IsExistBullet(di) === false )
 				continue;
 			if( IsSameBullet(ti, di))
-				continue;			
+				continue;
+			if( IsReservedToRemove(di) )
+				continue;
 
-			var aPos = GetBulletPosition(ti);
-			var bPos = GetBulletPosition(di);
+			vec2.push(di);
+			var aPos = GetBulletPosition(ti, collisionTick);
+			var bPos = GetBulletPosition(di, collisionTick);
 			if( common.IsOnCollision( aPos, bPos ) ){
-				RemoveBullet(ti);
-				RemoveBullet(di);
-				//ReserveToRemoveBullet(ti);
-				//ReserveToRemoveBullet(di);
-				//console.log('remove : ' + ti + ' ' + di);
+				//RemoveBullet(ti);
+				//RemoveBullet(di);
+				ReserveToRemoveBullet(ti);
+				ReserveToRemoveBullet(di);
+				console.log('remove : ' + ti + ' ' + di + ' ct:' + collisionTick);
+				log = true;
+				//console.log('vec di : ' + vec2);
 				break;
 			}
 		}
 	}
+	//if( log === true )
+	//  console.log('vec ti : ' + vec1);
 }
 
 // rank

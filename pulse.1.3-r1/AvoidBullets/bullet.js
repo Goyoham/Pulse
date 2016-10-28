@@ -28,6 +28,16 @@ var Bullet = pulse.Sprite.extend({
    update: function(elapsedMS) {      
 
       this.sumElapsedMS += (elapsedMS / 1000); // ms단위를 초단위로 변환하여 더한다.
+      
+      // elapsed가 0 이상이야지 보인다.
+      if( this.isRun === false 
+         && this.visible === false
+         && this.sumElapsedMS >= 0 )
+      {
+         this.visible = true;
+         this.isRun = true;
+      }
+      
       var tick = this.sumElapsedMS; // 이것이 tick이다!!
       //if( debug > 0 )
       //   console.log( 'sumEms:'+this.sumElapsedMS + ' ' + ' ems:'+elapsedMS+' tick:'+tick );
@@ -47,6 +57,16 @@ var Bullet = pulse.Sprite.extend({
 // (최초 한번만 호출하는 함수인데 init함수에서 하면 되는 거 아님?.. 그러게)
 Bullet.prototype.Run = function(){
    this.sumElapsedMS = serverTick - this.startTick;
+
+   // 시작하기 전에 elapsed가 음수면, 아직 invisible한다.
+   if( this.isRun === false 
+      && this.visible === true )
+   {
+      if( this.sumElapsedMS < 0 )
+         this.visible = false;
+      else
+         this.isRun = true;   
+   }
    /*
    console.log( 'serverTick:'+serverTick );
    console.log( 'startTick:'+this.startTick );
@@ -57,7 +77,7 @@ Bullet.prototype.Run = function(){
 // Bullet 클래스의 멤버함수 sync() 정의.
 // 공의 현재 위치를 재계산한다.
 Bullet.prototype.sync = function(tick_){
-   if( tick_ === this.lastSyncTick ) // 이거 안 해도 될 것 같긴한데.. 30ms단위로 호출되는 함수라서 같은 값이 들어올리가..
+   if( tick_ === this.lastSyncTick )
       return;
    //this.position.x = screen.ws + GetPosition(tick_, this.startPos.x, screen.we - screen.ws, this.velocity.x );
    //this.position.y = screen.hs + GetPosition(tick_, this.startPos.y, screen.he - screen.hs, this.velocity.y );
@@ -67,9 +87,12 @@ Bullet.prototype.sync = function(tick_){
 
 // Bullet 클래스의 멤버함수 GetPos() 정의.
 // 현재 위치 좌표를 리턴함.
-// 이 함수 왜 있냐면.. 로그 남기려고..
 Bullet.prototype.GetPos = function(){
    return common.GetPosition(this.lastSyncTick, this.startPos, this.velocity);
+}
+
+Bullet.prototype.GetPosCollision = function(colliionTick){
+   return common.GetPosition(colliionTick - this.startTick, this.startPos, this.velocity);
 }
 
 // 총알의 현재tick. serverTick과 동기화 되어야 함.
@@ -78,11 +101,11 @@ Bullet.prototype.GetTotalTick = function(){
 }
 
 // 틱 동기화
-Bullet.prototype.SyncServerTick = function(){
+Bullet.prototype.IsNeedToSyncServerTick = function(){
    var diff = Math.abs( this.GetTotalTick() - serverTick );
-   if( diff < 0.2 ) // 오차가 0.2초 이내면 무시
-      return;
-   this.Run();
+   if( diff >= 0.2 ) // 오차가 0.2초 이상이면 싱크 필요
+      return true;
+   return false;
 }
 
 // 아래는 Bullet 클래스의 멤버변수 선언 및 초기화.
@@ -91,4 +114,5 @@ Bullet.prototype.lastSyncTick = 0;           // 마지막 싱크 된 tick
 Bullet.prototype.startPos = { x : 0, y : 0 } // 생성된 위치
 Bullet.prototype.startVel = { x : 0, y : 0 } // 생성시 방향
 Bullet.prototype.sumElapsedMS = 0;           // 생성 후 지난 시간 tick
-Bullet.prototype.ballNum = 0;               // 공 종류 (색깔)
+Bullet.prototype.ballNum = 0;                // 공 종류 (색깔)
+Bullet.prototype.isRun = false;              // startTick이 되어야 시작.
