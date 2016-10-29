@@ -83,8 +83,12 @@ Bullet.prototype.sync = function(tick_){
    //this.position.y = screen.hs + GetPosition(tick_, this.startPos.y, screen.he - screen.hs, this.velocity.y );
    this.position = common.GetPosition(tick_, this.startPos, this.velocity);
    this.lastSyncTick = tick_;
+   //CHeckCollisionFromMe(this.layer, this);
 }
 
+Bullet.prototype.GetRealPos = function(){
+   return this.position;
+}
 // Bullet 클래스의 멤버함수 GetPos() 정의.
 // 현재 위치 좌표를 리턴함.
 Bullet.prototype.GetPos = function(){
@@ -101,9 +105,13 @@ Bullet.prototype.GetTotalTick = function(){
 }
 
 // 틱 동기화
+Bullet.prototype.GetTickDifference = function(){
+   return this.GetTotalTick() - serverTick;
+}
+
 Bullet.prototype.IsNeedToSyncServerTick = function(){
-   var diff = Math.abs( this.GetTotalTick() - serverTick );
-   if( diff >= 0.2 ) // 오차가 0.2초 이상이면 싱크 필요
+   var diff = Math.abs( this.GetTickDifference() );
+   if( diff >= 0.5 ) // 오차가 0.2초 이상이면 싱크 필요
       return true;
    return false;
 }
@@ -116,3 +124,4 @@ Bullet.prototype.startVel = { x : 0, y : 0 } // 생성시 방향
 Bullet.prototype.sumElapsedMS = 0;           // 생성 후 지난 시간 tick
 Bullet.prototype.ballNum = 0;                // 공 종류 (색깔)
 Bullet.prototype.isRun = false;              // startTick이 되어야 시작.
+Bullet.prototype.layer = '';

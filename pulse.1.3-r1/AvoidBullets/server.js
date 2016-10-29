@@ -20,7 +20,7 @@ var serverTick = 0;
 var startTime = 0;
 
 var bulletList = [];
-var MAX_BULLET_TYPE = [10, 10, 10, 10]; // mine, enemy, base1, base2
+var MAX_BULLET_TYPE = [10, 10, 5, 5]; // mine, enemy, base1, base2
 var numOfBullet = 0;
 var numOfBulletByType = [0, 0, 0, 0];
 
@@ -72,12 +72,12 @@ io.on('connection', function(socket){
 	});
 
 	socket.on('check collision', function(args){
-		console.log(args.ti + ' ' + bulletList[args.ti].reservedToRemove + ' ' + args.collisionTick);
-		console.log(args.di + ' ' + bulletList[args.di].reservedToRemove + ' ' + args.collisionTick);
-		if( bulletList[args.ti].reservedToRemove === false || bulletList[args.di].reservedToRemove === false ){
+		//console.log(args.ti + ' ' + bulletList[args.ti].reservedToRemove + ' ' + args.collisionTick);
+		//console.log(args.di + ' ' + bulletList[args.di].reservedToRemove + ' ' + args.collisionTick);
+		if( bulletList[args.ti].reservedToRemove !== true || bulletList[args.di].reservedToRemove !== true ){
 			var aPos = GetBulletPosition(args.ti, args.collisionTick);
 			var bPos = GetBulletPosition(args.di, args.collisionTick);
-			console.log('check collision : ' + aPos.x+' '+aPos.y+','+bPos.x+' '+bPos.y);
+			console.log('missed collision : ' + aPos.x+' '+aPos.y+','+bPos.x+' '+bPos.y);
 			if( common.IsOnCollision( aPos, bPos ) ){
 				console.log('onCollision!!');
 			}
@@ -298,7 +298,7 @@ function AddBullet(BULLET_TYPE, args, socket){
 		SendCreatedYourBullet(socket, newIndex);
 	}
 	io.emit('click ack', args);
-	console.log('add bullet uid:' + newIndex + ', startTick:' + args.startTick);
+	//console.log('add bullet uid:' + newIndex + ', startTick:' + args.startTick);
 	return newIndex;
 }
 
@@ -485,7 +485,7 @@ function CheckCollision(collisionTick){
 				//RemoveBullet(di);
 				ReserveToRemoveBullet(ti);
 				ReserveToRemoveBullet(di);
-				console.log('remove : ' + ti + ' ' + di + ' ct:' + collisionTick);
+				//console.log('remove : ' + ti + ' ' + di + ' ct:' + collisionTick);
 				log = true;
 				//console.log('vec di : ' + vec2);
 				break;

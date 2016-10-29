@@ -79,7 +79,7 @@ var common = require('./common.js'); 형태로 하면, 마찬가지로 "common.�
          return false;
       if( aPos.y - bulletSize > bPos.y || aPos.y + 4 < bPos.y)
          return false;
-      console.log(aPos.x+' '+aPos.y+','+bPos.x+' '+bPos.y);
+      //console.log(aPos.x+' '+aPos.y+','+bPos.x+' '+bPos.y);
       return true;
    };
 

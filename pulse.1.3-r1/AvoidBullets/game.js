@@ -21,7 +21,7 @@ var serverBestScores = [];
 
 pulse.ready(function() {
    // GameEngine 기본 처리 시작 -------------------------
-   var gane_engine = new pulse.Engine( { gameWindow: 'game-window', size: { width: SCREEN_WIDTH, height: SCREEN_HEIGHT+500 } } );
+   var game_engine = new pulse.Engine( { gameWindow: 'game-window', size: { width: SCREEN_WIDTH, height: SCREEN_HEIGHT+500 } } );
    var game_scene = new pulse.Scene();
    var game_layer = new pulse.Layer();
    game_layer.anchor = { x: 0, y: 0 };
@@ -38,9 +38,9 @@ pulse.ready(function() {
    game_layer.addNode(background);
 
    game_scene.addLayer(game_layer);
-   gane_engine.scenes.addScene(game_scene);
+   game_engine.scenes.addScene(game_scene);
 
-   gane_engine.scenes.activateScene(game_scene);
+   game_engine.scenes.activateScene(game_scene);
    // GameEngine 기본 처리 끝 -------------------------
 
    // 마우스 클릭 시 서버로 req 전송
@@ -122,7 +122,7 @@ pulse.ready(function() {
    });
 
    // 30ms 마다 다시 그린다.
-   gane_engine.go(30);
+   game_engine.go(10);
 
    setInterval(function(){
       while( lastCheckedCollisionTick < serverTick )
@@ -133,6 +133,30 @@ pulse.ready(function() {
       CheckMyScore(10);
       DrawMyScore(game_layer);
    }, 10);
+
+   setInterval(function(){
+      var sum = 0;
+      var cnt = 0;
+      var min = 999999;
+      var max = 0;
+      for(var i = 0; i < common.MAX_BULLET; ++i){
+         var bullet = game_layer.getNode('bullet' + i);
+         if( typeof bullet === 'undefined' || bullet.visible === false )
+            continue;
+
+         var tick = bullet.GetTotalTick();
+         if( max < tick )
+            max = tick;
+         if( min > tick )
+            min = tick;
+         sum += tick;
+         cnt += 1;
+      }
+      var avg = (sum / cnt).toFixed(3);
+      var avgDiff = (avg-lastCheckedCollisionTick).toFixed(3);
+      var minMaxDiff = (max - min).toFixed(3);
+      console.log('ct:'+lastCheckedCollisionTick+' avg:'+avg + ' avgDiff:'+avgDiff + ' minMaxDiff:'+minMaxDiff);
+   }, 5000);
 });
 
 function SendMouseEvent(args, interval){
@@ -190,11 +214,12 @@ function AddBullet(layer, args){
       ball.startTick = args['startTick'];
       ball.lastSyncTick = args['startTick'];
       ball.name = 'bullet' + args['uid'];
+      ball.layer = layer;
       ball.Run();
       layer.addNode(ball);
       ++numOfBullet;
       DrawNumOfBullet(layer);
-   console.log('add bullet uid:' + args.uid + ', startTick:' + args.startTick);
+   //console.log('add bullet uid:' + args.uid + ', startTick:' + args.startTick);
 }
 
 function ChangeBulletVelocity(layer, args){
@@ -217,10 +242,10 @@ function ChangeBulletVelocity(layer, args){
 // 총알 tick 오차 싱크
 function SyncBulletsPosition(layer){
    var needToSynk = false;
-   for(var index = 0; index < numOfBullet; ++index){
+   for(var index = 0; index < common.MAX_BULLET; ++index){
       var node = layer.getNode('bullet' + index);
       if( typeof node === 'undefined' )
-         return;
+         continue;
       // 싱크가 하나라도 안 맞으면,
       if( node.IsNeedToSyncServerTick() === true ){
          needToSynk = true;
@@ -232,10 +257,11 @@ function SyncBulletsPosition(layer){
       return;
 
    // 전체 싱크
-   for(var index = 0; index < numOfBullet; ++index){
+   console.log('do sync all');
+   for(var index = 0; index < common.MAX_BULLET; ++index){
       var node = layer.getNode('bullet' + index);
       if( typeof node === 'undefined' )
-         return;
+         continue;
       node.Run();
    }
 }   
@@ -280,15 +306,11 @@ var RemoveBullet = function(layer, args, notDraw){
 
 // 총알 충돌 클라에서 계산
 function CheckCollision(layer, collisionTick){
-   var log = false;
-   var vec1 = [];
    for(var ti = 0; ti < common.MAX_BULLET - 1; ++ti){
       var bulletA = layer.getNode('bullet' + ti);
       if( typeof bulletA === 'undefined' || bulletA.visible === false )
          continue;
 
-      vec1.push(ti);
-      var vec2 = [];
       for(var di = ti + 1; di < common.MAX_BULLET; ++di){
          var bulletB = layer.getNode('bullet' + di);
          if( typeof bulletB === 'undefined' || bulletB.visible === false )
@@ -296,23 +318,62 @@ function CheckCollision(layer, collisionTick){
          if( bulletA.ballNum === bulletB.ballNum )
             continue;        
 
-         vec2.push(di);
          if( common.IsOnCollision( bulletA.GetPosCollision(collisionTick), bulletB.GetPosCollision(collisionTick) ) ){
             bulletA.visible = false;
             bulletB.visible = false;
-            console.log('invisible : ' + bulletA.name + ' ' + bulletB.name + ' ct:'+collisionTick);
+
+            // check server collision
             var args = {};
             args.ti = ti;
             args.di = di;
             args.collisionTick = collisionTick;
             socket.emit('check collision', args);
-            //console.log('vec di : ' + vec2);
+            
+            // log
+            var diff = (((bulletA.GetTotalTick() + bulletB.GetTotalTick()) / 2) - collisionTick).toFixed(3);
+            console.log('invisible : ' + bulletA.name + ' ' + bulletB.name + ' ct:'+collisionTick 
+               +' t1:'+bulletA.GetTotalTick().toFixed(3)
+               +' t2:'+bulletB.GetTotalTick().toFixed(3)
+               +' diff:'+diff );
+            
             break;
          }
       }
    }
-   //if( log === true )
-   //   console.log('vec ti : ' + vec1);
+}
+
+function CHeckCollisionFromMe(layer, myBullet){
+   for(var ti = 0; ti < common.MAX_BULLET - 1; ++ti){
+      var bulletA = layer.getNode('bullet' + ti);
+      if( typeof bulletA === 'undefined' || bulletA.visible === false )
+         continue;
+
+      if( typeof myBullet === 'undefined' || myBullet.visible === false )
+         continue;         
+      if( bulletA.ballNum === myBullet.ballNum )
+         continue;        
+
+      if( common.IsOnCollision( bulletA.GetRealPos(), myBullet.GetRealPos() ) ){
+         bulletA.visible = false;
+         myBullet.visible = false;
+
+         // check server collision
+         var args = {};
+         args.ti = ti;
+         args.di = 0;
+         args.collisionTick = lastCheckedCollisionTick;
+         socket.emit('check collision', args);
+         
+         // log
+         var diff = (((bulletA.GetTotalTick() + myBullet.GetTotalTick()) / 2) - lastCheckedCollisionTick).toFixed(3);
+         console.log('invisible : ' + bulletA.name + ' ' + myBullet.name + ' ct:'+lastCheckedCollisionTick 
+            +' t1:'+bulletA.GetTotalTick().toFixed(3)
+            +' t2:'+myBullet.GetTotalTick().toFixed(3)
+            +' diff:'+diff );
+         
+         break;
+      }      
+   }
 }
 
 // 스코어 계산 begin ------------------
