@@ -316,7 +316,7 @@ function DrawButtonClear(layer){
 function DrawMyScore(layer){
    layer.removeNode('MyScore');
    var label = new pulse.CanvasLabel({ text: 'MyScore : ' + GetMyScore() + '  /  MyBestScore : ' + GetMyBestScore() });
-   label.position = { x: 300, y : 500 };
+   label.position = { x: 320, y : 500 };
    label.name = 'MyScore';
    layer.addNode(label);
 }
@@ -329,8 +329,13 @@ function DrawServerBestScoreTop(layer, i, data){
       var newData = {nickname: '', score: 0};
       data = newData;
    }
-   var label = new pulse.CanvasLabel({ text: '<TOP ' + (i+1) + '> : ' + (data.score*=1).toFixed(3) + ' ('+data.nickname+')' });
-   label.position = { x: 300, y : (560 + (i*20)) };
+   var label = new pulse.CanvasLabel({ text: 
+      '<TOP ' + (i+1) + '> : ' 
+      + (data.score*=1).toFixed(3) 
+      + ' ('+data.date+')'
+      + ' ('+data.nickname+')' 
+   });
+   label.position = { x: 320, y : (560 + (i*20)) };
    label.name = 'ServerBestScore' + i;
    layer.addNode(label);
 }
@@ -338,7 +343,7 @@ function DrawServerBestScoreTop(layer, i, data){
 function DrawServerBestScore(layer){
    layer.removeNode('ServerBestScore');
    var label = new pulse.CanvasLabel({ text: '<Server Best Score Top 10>'});
-   label.position = { x: 300, y : 540 };
+   label.position = { x: 320, y : 540 };
    label.name = 'ServerBestScore';
    layer.addNode(label);
 

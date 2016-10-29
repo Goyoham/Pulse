@@ -424,7 +424,10 @@ function CheckBestScore(socket, args){
 
 	// 2. 랭크 계산
 	var bNewScore = false;
-	var rankData = {nickname: socket.request.connection.remoteAddress, score: args.score};
+	var rankData = {};
+	rankData.nickname = socket.request.connection.remoteAddress;
+	rankData.score = args.score;
+	rankData.date = GetDate();
 	console.log('check score ' + rankData.score + ' ' + rankData.nickname);
 	if( bestScore.length < MaxRankSize ){
 		bestScore.push(rankData);
