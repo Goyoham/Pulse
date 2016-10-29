@@ -211,7 +211,7 @@ function SyncBulletsPosition(layer){
    for(var index = 0; index < numOfBullet; ++index){
       var node = layer.getNode('bullet' + index);
       if( typeof node === 'undefined' )
-         return;
+         continue;
       node.SyncServerTick();
    }
 }   
