@@ -20,6 +20,10 @@ var myBestScore = 0;
 var serverBestScores = [];
 
 pulse.ready(function() {
+   if(window.innerHeight > window.innerWidth){
+       alert("가로모드로 플레이 하세요!");
+   }
+
    // GameEngine 기본 처리 시작 -------------------------
    var gane_engine = new pulse.Engine( { gameWindow: 'game-window', size: { width: SCREEN_WIDTH, height: SCREEN_HEIGHT+500 } } );
    var game_scene = new pulse.Scene();
