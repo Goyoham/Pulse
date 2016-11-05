@@ -79,7 +79,7 @@ Bullet.prototype.GetTotalTick = function(){
 // 틱 동기화
 Bullet.prototype.SyncServerTick = function(){
    var diff = Math.abs( this.GetTotalTick() - serverTick );
-   if( diff < 0.1 ) // 오차가 0.1초 이내면 무시
+   if( diff < 0.2 ) // 오차가 0.2초 이내면 무시
       return;
    this.Run();
 }

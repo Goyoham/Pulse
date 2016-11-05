@@ -13,7 +13,7 @@ var btn_clear = {ws:350, we:450, hs:15, he:55};
 var TotalUser = 0; // 현재 동접
 var AccUserCount = 0; // 누적 접속자 수
 var UserInfo = {};
-var BulletInfo = {};
+var BulletInfo = {}; // bulletUID : UserKey
 var BALL_NUM_MAX = 3;
 
 var serverTick = 0;
@@ -49,7 +49,7 @@ io.on('connection', function(socket){
 			if( args.uid >= 0 )
 			{
 				// user key와 bullet uid가 동일해야, 내 총알이므로 조작 가능.
-				if( UserInfo[GetUserKey(socket)] == args.uid )
+				if( UserInfo[GetUserKey(socket)].uid == args.uid )
 					MoveBullet(args);
 			}
 			else
@@ -164,7 +164,6 @@ function UpdateUserConnection(socket, isConnect){
 		TotalUser += 1;
 		AccUserCount += 1;
 		msg = 'connected';
-		//UserInfo[GetUserKey(socket)] = GetBallNum();
 	}
 	else{
 		TotalUser -= 1;
@@ -255,7 +254,7 @@ function AddBullet(BULLET_TYPE, args, socket){
 		args['vely'] = ((Math.random() * 300) - 150).toFixed();
 	}
 	args['ballNum'] = BULLET_TYPE;
-	args['startTick'] = GetServerTick();
+	args['fixedStartTick'] = args['startTick'] = GetServerTick();
 	args['uid'] = newIndex;
 	if( BULLET_TYPE == common.BULLET_TYPE_MINE )
 	{
@@ -272,8 +271,11 @@ function AddBullet(BULLET_TYPE, args, socket){
 	++numOfBullet;
 	++numOfBulletByType[BULLET_TYPE];
 	SendServerSync(io);
-	if( typeof socket !== 'undefined'){		
-		UserInfo[GetUserKey(socket)] = newIndex;
+	if( typeof socket !== 'undefined'){
+		var userData = {};
+		userData.uid = newIndex;
+		userData.lastScore = 0;
+		UserInfo[GetUserKey(socket)] = userData;
 		BulletInfo[newIndex] = GetUserKey(socket);
 		SendCreatedYourBullet(socket, newIndex);
 	}
@@ -315,16 +317,17 @@ var CreateBaseBullet = function(type){
 function RemoveBullet(index){
 	if( IsExistBullet(index) === false )
 		return;
-	bulletList[index]['uid'] = -1;
+	bulletList[index].uid = -1;
 	--numOfBullet;
-	--numOfBulletByType[bulletList[index]['ballNum']];
+	--numOfBulletByType[bulletList[index].ballNum];
 	args = {index: index, removedTick: GetServerTick()};
 	io.emit('remove bullet', args);
-	if( bulletList[index]['uid'].ballNum == common.BULLET_TYPE_MINE )
+	if( bulletList[index].ballNum == common.BULLET_TYPE_MINE )
 	{
-		Log('remove bullet index : ' + index);
 		var userKey = BulletInfo[index];
-		UserInfo[userKey] = -1;
+		UserInfo[userKey].uid = -1;
+		UserInfo[userKey].lastScore = (GetServerTick() - bulletList[index].fixedStartTick).toFixed(3);
+		Log('remove player bullet index : ' + index + ' score : ' + UserInfo[userKey].lastScore);
 	}
 }
 
@@ -407,8 +410,6 @@ function CheckCollision(){
 			var aPos = GetBulletPosition(ti);
 			var bPos = GetBulletPosition(di);
 			if( common.IsOnCollision( aPos, bPos ) ){
-			//if( common.IsOnCollision( GetBulletPosition(ti), GetBulletPosition(di) ) ){
-				//console.log('on collision ' + serverTick + ' ' + aPos.x+','+aPos.y + ' ' + bPos.x+','+bPos.y);
 				RemoveBullet(ti);
 				RemoveBullet(di);
 				break;
@@ -420,7 +421,24 @@ function CheckCollision(){
 // rank
 var MaxRankSize = 10;
 function CheckBestScore(socket, args){
-	// 1. user 인증
+	// 1. user score 인증
+	var userKey = BulletInfo[args.uid];
+	if( userKey === 'undefined')
+	{
+		console.log('cannot find user key for score, args: ' + args.uid + ' ' + args.score);
+		return;
+	}
+
+	var scoreDiff = Math.abs(UserInfo[userKey].lastScore - args.score).toFixed(3);
+	if( scoreDiff > 3 ){
+		console.log('very different score from server.'
+			+ ', userKey:'+userKey
+			+ ', scoreDiff:'+scoreDiff
+			+ ', client score:'+args.score
+			+ ', server score:'+UserInfo[userKey].lastScore
+			);
+		return;
+	}
 
 	// 2. 랭크 계산
 	var bNewScore = false;

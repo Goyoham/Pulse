@@ -20,7 +20,8 @@ var myBestScore = 0;
 var serverBestScores = [];
 
 pulse.ready(function() {
-   if(window.innerHeight > window.innerWidth){
+   if( window.innerWidth < SCREEN_WIDTH
+      && window.innerHeight > window.innerWidth){
        alert("가로모드로 플레이 하세요!");
    }
 
@@ -242,8 +243,8 @@ var RemoveBullet = function(layer, index, notDraw){
 
    if( index === MyBulletUID )
    {
-      CheckMyBestScore();
-      SendMyScore();
+      SendMyScore(); // send to server
+      CheckMyBestScore(); // alert
       SetMyBulletUID(-1);
    }
 };
