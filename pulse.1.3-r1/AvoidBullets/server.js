@@ -347,11 +347,12 @@ function CreateBullet(){
 	if( numOfBullet >= MAX_BULLET )
 		return -1;
 
-	for(var i = 0; i < bulletList.length; ++i){
+	var length = bulletList.length;
+	for(var i = 0; i < length; ++i){
 		if( bulletList[i].uid < 0 )
 			return i;
 	}
-	return bulletList.length;
+	return length;
 }
 
 // 총알 종류 랜덤으로 받기.
@@ -398,10 +399,11 @@ function GetBulletPosition(index){
 // 총알 전체를 루프 돌면서 충돌한 총알이 있는지 검사.
 // 이렇게 루프를 다 돌아버려도 되는건지 의문이다.
 function CheckCollision(){
-	for(var ti = 0; ti < bulletList.length - 1; ++ti){
+	var length = bulletList.length;
+	for(var ti = 0; ti < length - 1; ++ti){
 		if( IsExistBullet(ti) === false )
 			continue;
-		for(var di = ti + 1; di < bulletList.length; ++di){
+		for(var di = ti + 1; di < length; ++di){
 			if( IsExistBullet(di) === false )
 				continue;
 			if( IsSameBullet(ti, di))

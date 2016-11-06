@@ -81,7 +81,8 @@ pulse.ready(function() {
       serverTick = initData.serverTick;
       var bulletList = initData.bulletList;
       ClearBullet(game_layer);
-      for(var i = 0; i < bulletList.length; ++i)
+      var length = bulletList.length;
+      for(var i = 0; i < length; ++i)
          AddBullet(game_layer, bulletList[i]);
    });
 
@@ -353,7 +354,8 @@ function DrawServerBestScore(layer){
    layer.addNode(label);
 
    for(var i = 0; i < 10; ++i){
-      var data = i >= serverBestScores.length ? 0 : serverBestScores[i];
+      var length = serverBestScores.length;
+      var data = i >= length ? 0 : serverBestScores[i];
       DrawServerBestScoreTop(layer, i, data);
    }
 }

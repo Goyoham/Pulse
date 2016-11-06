@@ -14,7 +14,8 @@ var Bullet = pulse.Sprite.extend({
 
       args = args || {};
       var ballNum = args['ballNum'];
-      if( ballNum >= BallNum.length || ballNum < 0 )
+      var length = BallNum.length;
+      if( ballNum >= length || ballNum < 0 )
          args.src = BallNum[0];
       else
          args.src = BallNum[args['ballNum']];
